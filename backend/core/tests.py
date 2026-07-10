@@ -1,12 +1,15 @@
+import io
 from unittest.mock import patch
 
+import openpyxl
 from django.core import mail
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from rest_framework.test import APITestCase
 
 from employees.models import Employee
 
-from .models import MailLog
+from .models import ExcelImport, MailLog
 
 
 class MailLogModelTests(TestCase):
@@ -78,3 +81,44 @@ class SmtpTestApiTests(APITestCase):
         response = self.client.post("/api/config/smtp/test/")
         self.assertEqual(response.status_code, 400)
         self.assertEqual(response.data["status"], "erreur")
+
+
+def _build_xlsx(rows):
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    for row in rows:
+        sheet.append(row)
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return buffer.read()
+
+
+class ImportUploadApiTests(APITestCase):
+    def test_missing_required_columns_is_reported_as_failed(self):
+        content = _build_xlsx([["colonne_inconnue"], ["valeur"]])
+        upload = SimpleUploadedFile(
+            "employes.xlsx", content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post("/api/imports/upload/", {"fichier": upload}, format="multipart")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "FAILED")
+        self.assertEqual(response.data["lignes_erreurs"], 1)
+        self.assertEqual(ExcelImport.objects.get(pk=response.data["id"]).status, ExcelImport.Status.FAILED)
+
+    def test_valid_rows_are_reported_as_success(self):
+        content = _build_xlsx([
+            ["matricule", "nom", "prenom"],
+            ["M100", "Dupont", "Jean"],
+        ])
+        upload = SimpleUploadedFile(
+            "employes.xlsx", content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post("/api/imports/upload/", {"fichier": upload}, format="multipart")
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "SUCCESS")
+        self.assertEqual(response.data["lignes_importees"], 1)

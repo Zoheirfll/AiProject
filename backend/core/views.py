@@ -37,7 +37,7 @@ class ImportUploadView(APIView):
             excel_import.erreurs = errors
             excel_import.status = (
                 ExcelImport.Status.SUCCESS
-                if imported > 0 or total == 0
+                if imported > 0 or (total == 0 and not errors)
                 else ExcelImport.Status.FAILED
             )
         except Exception as exc:  # noqa: BLE001
