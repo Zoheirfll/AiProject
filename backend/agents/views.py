@@ -40,10 +40,18 @@ class AgentAnalyseListView(ListAPIView):
 
 
 class AnalyseLancerView(APIView):
-    """Run the analyste agent on-demand (ad-hoc snapshot, no specific import)."""
+    """Run the analyste agent on-demand — a generic snapshot of all active
+    employees (not tied to a specific import)."""
 
     def post(self, request):
-        analyse = analyser_import(None)
+        from employees.serializers import EmployeeSerializer
+        from employees.models import Employee
+
+        lignes = [
+            {k: v for k, v in EmployeeSerializer(e).data.items() if k != "contracts"}
+            for e in Employee.objects.filter(actif=True)
+        ]
+        analyse = analyser_import(None, lignes=lignes)
         return Response(AgentAnalyseSerializer(analyse).data, status=201)
 
 

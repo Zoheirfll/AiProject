@@ -151,11 +151,12 @@ def _build_xlsx(rows):
     return buffer.read()
 
 
+@patch("agents.analyste.analyser_document")
 class ImportUploadApiTests(APITestCase):
     def setUp(self):
         self.client.force_authenticate(user=make_user())
 
-    def test_missing_required_columns_is_reported_as_failed(self):
+    def test_missing_required_columns_is_reported_as_failed(self, mock_analyser):
         content = _build_xlsx([["colonne_inconnue"], ["valeur"]])
         upload = SimpleUploadedFile(
             "employes.xlsx", content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -168,7 +169,8 @@ class ImportUploadApiTests(APITestCase):
         self.assertEqual(response.data["lignes_erreurs"], 1)
         self.assertEqual(ExcelImport.objects.get(pk=response.data["id"]).status, ExcelImport.Status.FAILED)
 
-    def test_valid_rows_are_reported_as_success(self):
+    def test_valid_rows_are_reported_as_success(self, mock_analyser):
+        mock_analyser.return_value = {"envoyer": False, "subject": "", "body": ""}
         content = _build_xlsx([
             ["matricule", "nom", "prenom"],
             ["M100", "Dupont", "Jean"],

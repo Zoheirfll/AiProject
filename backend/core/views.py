@@ -37,9 +37,10 @@ class ImportUploadView(APIView):
             fichier=uploaded_file, nom_fichier_origine=uploaded_file.name
         )
         mapping = ImportConfig.get_solo().mapping or None
+        lignes = []
 
         try:
-            total, imported, errors = parse_employee_excel(excel_import.fichier, mapping)
+            total, imported, errors, lignes = parse_employee_excel(excel_import.fichier, mapping)
             excel_import.lignes_total = total
             excel_import.lignes_importees = imported
             excel_import.lignes_erreurs = len(errors)
@@ -58,7 +59,7 @@ class ImportUploadView(APIView):
             from agents.analyste import analyser_import
 
             try:
-                analyser_import(excel_import)
+                analyser_import(excel_import, lignes=lignes)
             except Exception:  # noqa: BLE001
                 pass  # the analyste agent is best-effort; never fail the upload because of it
 

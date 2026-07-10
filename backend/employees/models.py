@@ -12,6 +12,11 @@ class Employee(models.Model):
     num_contrat = models.CharField(max_length=100, blank=True)
     date_fin_contrat = models.DateField(null=True, blank=True)
     date_embauche = models.DateField(null=True, blank=True)
+    donnees_supplementaires = models.JSONField(
+        default=dict, blank=True,
+        help_text="Colonnes Excel importées qui ne correspondent à aucun champ système — "
+        "HR data n'est pas limité aux contrats (congés, formations, évaluations, etc.).",
+    )
     actif = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

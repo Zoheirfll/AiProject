@@ -26,6 +26,7 @@ class EmployeeSerializer(serializers.ModelSerializer):
             "num_contrat",
             "date_fin_contrat",
             "date_embauche",
+            "donnees_supplementaires",
             "actif",
             "contracts",
         ]

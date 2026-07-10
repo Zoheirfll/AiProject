@@ -236,6 +236,7 @@ function EmployeesSection() {
   const [filters, setFilters] = useState({ search: '', departement: '', categorie: '' })
   const [ordering, setOrdering] = useState('nom')
   const [page, setPage] = useState(1)
+  const [expanded, setExpanded] = useState(null)
 
   const employeesQuery = useQuery({
     queryKey: ['employees-page', filters, ordering, page],
@@ -334,19 +335,48 @@ function EmployeesSection() {
                       {label} {sortIndicator(field)}
                     </th>
                   ))}
+                  <th className="px-5 py-3 font-medium">Autres données</th>
                 </tr>
               </thead>
               <tbody>
-                {results.map((emp) => (
-                  <tr key={emp.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 dark:border-slate-700/60 dark:hover:bg-slate-700/30">
-                    <td className="px-5 py-3 font-medium text-slate-900 dark:text-slate-100">{emp.matricule}</td>
-                    <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.nom}</td>
-                    <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.prenom}</td>
-                    <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.departement || <EmptyCell />}</td>
-                    <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.poste || <EmptyCell />}</td>
-                    <td className="px-5 py-3">{emp.categorie ? <Badge tone="primary">{emp.categorie}</Badge> : <EmptyCell />}</td>
-                  </tr>
-                ))}
+                {results.map((emp) => {
+                  const extra = Object.entries(emp.donnees_supplementaires || {})
+                  return (
+                    <Fragment key={emp.id}>
+                      <tr className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 dark:border-slate-700/60 dark:hover:bg-slate-700/30">
+                        <td className="px-5 py-3 font-medium text-slate-900 dark:text-slate-100">{emp.matricule}</td>
+                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.nom}</td>
+                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.prenom}</td>
+                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.departement || <EmptyCell />}</td>
+                        <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.poste || <EmptyCell />}</td>
+                        <td className="px-5 py-3">{emp.categorie ? <Badge tone="primary">{emp.categorie}</Badge> : <EmptyCell />}</td>
+                        <td className="px-5 py-3">
+                          {extra.length > 0 ? (
+                            <button
+                              className="text-primary-600 underline decoration-dotted hover:text-primary-700 dark:text-primary-400"
+                              onClick={() => setExpanded(expanded === emp.id ? null : emp.id)}
+                            >
+                              +{extra.length} champ(s)
+                            </button>
+                          ) : (
+                            <EmptyCell />
+                          )}
+                        </td>
+                      </tr>
+                      {expanded === emp.id && extra.length > 0 && (
+                        <tr className="bg-slate-50/60 dark:bg-slate-700/20">
+                          <td colSpan={columns.length + 1} className="px-5 py-3">
+                            <ul className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs text-slate-600 dark:text-slate-300 sm:grid-cols-3">
+                              {extra.map(([key, value]) => (
+                                <li key={key}><span className="text-slate-400">{key} :</span> {value}</li>
+                              ))}
+                            </ul>
+                          </td>
+                        </tr>
+                      )}
+                    </Fragment>
+                  )
+                })}
               </tbody>
             </table>
             <div className="flex items-center justify-between px-5 py-3 text-sm text-slate-500 dark:text-slate-400">
@@ -412,7 +442,7 @@ export default function ImportsPage() {
     <div className="mx-auto max-w-5xl space-y-8 p-8">
       <PageHeader
         title="Import Excel"
-        description="Colonnes attendues : matricule, nom, prenom, email, departement, poste, categorie, num_contrat, date_embauche, date_fin_contrat."
+        description="Seuls matricule, nom et prenom sont requis. Les autres colonnes reconnues (email, departement, poste, categorie, num_contrat, date_embauche, date_fin_contrat) sont mappées automatiquement — toute autre colonne (congés, formations, évaluations…) est importée telle quelle, sans configuration."
       />
 
       <Card className="border-dashed bg-linear-to-br from-primary-50/70 via-white to-white dark:from-primary-950/30 dark:via-slate-800 dark:to-slate-800">

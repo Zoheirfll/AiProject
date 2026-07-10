@@ -1,8 +1,11 @@
-"""Analyste agent (US-E6-01): runs after every Excel import, decides which
-alerts matter, drafts the explanation via Ollama, and sends it if warranted.
+"""Analyste agent (US-E6-01): runs after every Excel import and lets Ollama
+decide, generically, what matters — HR data isn't limited to contracts
+(leave, training, evaluations, disciplinary notes, anything a sheet might
+contain), so this deliberately does NOT hardcode categories like "expiring
+contract" or "new hire". It's the same free-form approach as the document
+surveillance agent (agents.ollama_client.analyser_document), just applied
+to Employee imports instead of a watched document.
 """
-from datetime import timedelta
-
 from django.utils import timezone
 
 from .models import AgentAnalyse, AgentConfig
@@ -30,61 +33,52 @@ def _resoudre_destinataires(entries):
     return sorted(resolved)
 
 
-def _collecter_constats(excel_import):
-    from employees.models import Contract, Employee
-
-    today = timezone.localdate()
-
-    nouveaux = Employee.objects.filter(date_embauche__gte=today - timedelta(days=7))
-    critiques = (
-        Contract.objects.filter(date_fin__isnull=False, date_fin__range=(today, today + timedelta(days=30)))
-        .select_related("employee")
+def _ligne_texte(ligne):
+    return " | ".join(
+        f"{k}: {v}" for k, v in ligne.items()
+        if v not in (None, "", {}) and k != "donnees_supplementaires"
+    ) + (
+        " | " + " | ".join(f"{k}: {v}" for k, v in ligne.get("donnees_supplementaires", {}).items())
+        if ligne.get("donnees_supplementaires")
+        else ""
     )
+
+
+def _collecter_contenu(excel_import, lignes):
+    """Build a plain-text dump of whatever was actually imported — no
+    assumption about subject matter — for the LLM to analyze freely."""
     anomalies = excel_import.erreurs if excel_import and excel_import.erreurs else []
 
-    lignes = []
-    decisions = []
-
-    if nouveaux.exists():
-        noms = ", ".join(f"{e.prenom} {e.nom}" for e in nouveaux[:20])
-        lignes.append(f"Nouveaux arrivants (embauchés dans les 7 derniers jours) : {noms}")
-        decisions.append(
-            {"type": "nouveaux_arrivants", "description": f"{nouveaux.count()} nouvel(le)aux arrivant(e)s détecté(s)."}
-        )
-
-    if critiques.exists():
-        noms = ", ".join(f"{c.employee.prenom} {c.employee.nom} ({c.date_fin})" for c in critiques[:20])
-        lignes.append(f"Contrats critiques expirant sous 30 jours : {noms}")
-        decisions.append(
-            {"type": "contrats_critiques", "description": f"{critiques.count()} contrat(s) critique(s) détecté(s)."}
-        )
-
+    parties = []
+    if lignes:
+        apercu = "\n".join(_ligne_texte(ligne) for ligne in lignes[:50])
+        parties.append(f"Lignes importées ({len(lignes)} au total, aperçu ci-dessous) :\n{apercu}")
     if anomalies:
-        lignes.append(f"{len(anomalies)} anomalie(s) détectée(s) lors de l'import.")
-        decisions.append(
-            {"type": "anomalies", "description": f"{len(anomalies)} anomalie(s) dans les données importées."}
-        )
+        details = "; ".join(a.get("message", "") for a in anomalies[:20])
+        parties.append(f"{len(anomalies)} anomalie(s) détectée(s) lors de l'import : {details}")
 
-    contenu = "\n".join(lignes) or "Aucun élément notable détecté dans cet import."
-    return contenu, decisions
+    return "\n\n".join(parties) or "Aucune donnée exploitable pour cet import."
 
 
 ANALYSTE_PROMPT = (
-    "Tu es un agent RH qui vient d'analyser un import Excel de données employés. "
-    "Explique en français, de façon claire et concise, ce que tu as trouvé et "
-    "pourquoi c'est important pour l'équipe RH."
+    "Tu es un agent RH qui vient d'analyser un import de données Excel. Ces données "
+    "peuvent porter sur n'importe quel sujet RH (contrats, congés, formations, "
+    "évaluations, absences, sanctions, etc.) — ne suppose rien à l'avance sur leur "
+    "contenu. Identifie ce qui te semble important ou nécessitant une action de la "
+    "part de l'équipe RH, et explique-le en français, de façon claire et concise."
 )
 
 
-def analyser_import(excel_import=None):
-    """Run the analyste agent for one import (or None for an ad-hoc snapshot
-    analysis). Creates and returns an AgentAnalyse row; sends an alert email
-    if the model decides it's warranted and recipients are configured."""
+def analyser_import(excel_import=None, lignes=None):
+    """Run the analyste agent for one import (or None + lignes=None for an
+    ad-hoc snapshot analysis). Creates and returns an AgentAnalyse row;
+    sends an alert email if the model decides it's warranted and recipients
+    are configured."""
     from core.models import MailLog
     from core.services import send_mail_log
 
     config = AgentConfig.get_solo()
-    contenu, decisions = _collecter_constats(excel_import)
+    contenu = _collecter_contenu(excel_import, lignes or [])
 
     try:
         analyse = analyser_document(
@@ -92,6 +86,13 @@ def analyser_import(excel_import=None):
         )
     except OllamaGenerationError as exc:
         analyse = {"envoyer": False, "subject": "", "body": f"Erreur d'analyse Ollama : {exc}"}
+
+    decisions = []
+    anomalies = excel_import.erreurs if excel_import and excel_import.erreurs else []
+    if anomalies:
+        decisions.append({"type": "anomalies", "description": f"{len(anomalies)} anomalie(s) dans les données importées."})
+    if lignes:
+        decisions.append({"type": "donnees_analysees", "description": f"{len(lignes)} ligne(s) analysée(s)."})
 
     alertes_envoyees = 0
     if analyse["envoyer"] and config.analyste_destinataires:

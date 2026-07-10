@@ -109,34 +109,50 @@ def parse_employee_excel(file_obj, mapping_override=None):
     mapping_override: optional {system_field: excel_column_header} dict
     (from ImportConfig.mapping) to use instead of the built-in COLUMN_MAP.
 
-    Returns (total, imported, errors) where errors is a list of
-    {"ligne": int, "message": str} dicts.
+    Columns that don't match a known system field are NOT ignored — HR data
+    is wide open (leave, training, evaluations, disciplinary notes, anything)
+    and the app shouldn't hardcode an exhaustive list of what an Excel sheet
+    is allowed to contain. Any such column is kept verbatim per employee in
+    Employee.donnees_supplementaires, and also fed to the analyste agent
+    (agents.analyste) so it can reason about whatever the sheet is actually
+    about instead of assuming it's always contracts.
+
+    Returns (total, imported, errors, lignes) where errors is a list of
+    {"ligne": int, "message": str} dicts and lignes is a list of per-row
+    dicts (system fields + extra columns) for successfully imported rows.
     """
     workbook = openpyxl.load_workbook(file_obj, data_only=True)
     sheet = workbook.active
 
     rows = list(sheet.iter_rows(values_only=True))
     if not rows:
-        return 0, 0, [{"ligne": 0, "message": "Fichier vide"}]
+        return 0, 0, [{"ligne": 0, "message": "Fichier vide"}], []
 
     header = [str(cell).strip().lower() if cell else "" for cell in rows[0]]
     field_by_col = build_field_map(header, mapping_override)
+    extra_cols = {i: h for i, h in enumerate(header) if i not in field_by_col and h}
 
     missing = [c for c in REQUIRED_COLUMNS if c not in field_by_col.values()]
     if missing:
         return 0, 0, [
             {"ligne": 1, "message": f"Colonnes manquantes: {', '.join(missing)}"}
-        ]
+        ], []
 
     total = 0
     imported = 0
     errors = []
+    lignes = []
 
     for line_num, row in enumerate(rows[1:], start=2):
         if all(cell is None for cell in row):
             continue
         total += 1
         data = {field_by_col[i]: row[i] for i in field_by_col if i < len(row)}
+        extra = {
+            extra_cols[i]: row[i]
+            for i in extra_cols
+            if i < len(row) and row[i] not in (None, "")
+        }
 
         if not data.get("matricule") or not data.get("nom") or not data.get("prenom"):
             errors.append({"ligne": line_num, "message": "Champs requis manquants"})
@@ -148,16 +164,18 @@ def parse_employee_excel(file_obj, mapping_override=None):
             }
             for field in DATE_FIELDS:
                 defaults[field] = _coerce_date(data.get(field))
+            defaults["donnees_supplementaires"] = {k: str(v) for k, v in extra.items()}
 
             Employee.objects.update_or_create(
                 matricule=str(data["matricule"]).strip(),
                 defaults=defaults,
             )
             imported += 1
+            lignes.append({**defaults, "matricule": str(data["matricule"]).strip()})
         except Exception as exc:  # noqa: BLE001
             errors.append({"ligne": line_num, "message": str(exc)})
 
-    return total, imported, errors
+    return total, imported, errors, lignes
 
 
 MAIL_COLUMN_MAP = {
@@ -241,9 +259,10 @@ def scan_dossier_surveille():
                 source=ExcelImport.Source.DOSSIER,
             )
 
+        lignes = []
         try:
             with excel_import.fichier.open("rb") as fh:
-                total, imported, errors = parse_employee_excel(fh, config.mapping or None)
+                total, imported, errors, lignes = parse_employee_excel(fh, config.mapping or None)
             excel_import.lignes_total = total
             excel_import.lignes_importees = imported
             excel_import.lignes_erreurs = len(errors)
@@ -262,7 +281,7 @@ def scan_dossier_surveille():
             from agents.analyste import analyser_import
 
             try:
-                analyser_import(excel_import)
+                analyser_import(excel_import, lignes=lignes)
             except Exception:  # noqa: BLE001
                 pass  # best-effort — never let the analyste agent break folder-watch imports
 
