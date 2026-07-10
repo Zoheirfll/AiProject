@@ -339,7 +339,7 @@ function EmployeesSection() {
                     <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.prenom}</td>
                     <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.departement || <EmptyCell />}</td>
                     <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.poste || <EmptyCell />}</td>
-                    <td className="px-5 py-3 text-slate-700 dark:text-slate-300">{emp.categorie || <EmptyCell />}</td>
+                    <td className="px-5 py-3">{emp.categorie ? <Badge tone="primary">{emp.categorie}</Badge> : <EmptyCell />}</td>
                   </tr>
                 ))}
               </tbody>
@@ -409,10 +409,10 @@ export default function ImportsPage() {
         description="Colonnes attendues : matricule, nom, prenom, email, departement, poste, categorie, num_contrat, date_embauche, date_fin_contrat."
       />
 
-      <Card className="border-dashed">
+      <Card className="border-dashed bg-linear-to-br from-primary-50/70 via-white to-white dark:from-primary-950/30 dark:via-slate-800 dark:to-slate-800">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-300">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-primary-500 to-primary-600 text-white shadow-sm">
               <UploadIcon />
             </div>
             <div>
