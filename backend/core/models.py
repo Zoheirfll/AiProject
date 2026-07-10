@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 
@@ -21,6 +22,13 @@ class ExcelImport(models.Model):
     lignes_importees = models.PositiveIntegerField(default=0)
     lignes_erreurs = models.PositiveIntegerField(default=0)
     erreurs = models.JSONField(default=list, blank=True)
+    # Owner (US: a Chargé RH shouldn't see another Chargé RH's imports; DRH
+    # sees everything). Null for folder-watch imports (no request.user in
+    # that background job context) — ownerless rows stay visible to
+    # everyone, same convention as automatisations.RegleAutomatisation.
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="imports_crees",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

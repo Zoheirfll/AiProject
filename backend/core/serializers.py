@@ -4,6 +4,8 @@ from .models import ExcelImport, MailLog
 
 
 class ExcelImportSerializer(serializers.ModelSerializer):
+    cree_par_username = serializers.CharField(source="cree_par.username", read_only=True, default=None)
+
     class Meta:
         model = ExcelImport
         fields = [
@@ -16,6 +18,7 @@ class ExcelImportSerializer(serializers.ModelSerializer):
             "lignes_importees",
             "lignes_erreurs",
             "erreurs",
+            "cree_par_username",
             "created_at",
         ]
         read_only_fields = fields

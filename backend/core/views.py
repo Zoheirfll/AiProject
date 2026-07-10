@@ -50,7 +50,7 @@ class ImportUploadView(APIView):
             return Response({"detail": "Aucun fichier fourni."}, status=400)
 
         excel_import = ExcelImport.objects.create(
-            fichier=uploaded_file, nom_fichier_origine=uploaded_file.name
+            fichier=uploaded_file, nom_fichier_origine=uploaded_file.name, cree_par=request.user,
         )
         mapping = ImportConfig.get_solo().mapping or None
         lignes = []
@@ -82,9 +82,23 @@ class ImportUploadView(APIView):
         return Response(ExcelImportSerializer(excel_import).data, status=201)
 
 
+def _import_visible_qs(user):
+    """A Chargé RH only sees imports they created; ownerless imports (e.g.
+    folder-watch, which has no request.user) stay visible to everyone;
+    DRH sees everything."""
+    from django.db.models import Q
+
+    qs = ExcelImport.objects.all()
+    if user.is_drh:
+        return qs
+    return qs.filter(Q(cree_par=user) | Q(cree_par__isnull=True))
+
+
 class ImportHistoryView(ListAPIView):
-    queryset = ExcelImport.objects.all()
     serializer_class = ExcelImportSerializer
+
+    def get_queryset(self):
+        return _import_visible_qs(self.request.user)
 
 
 class ImportDeleteView(APIView):

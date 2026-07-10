@@ -172,6 +172,7 @@ function ImportHistorySection() {
                 <th className="px-5 py-3 font-medium">Total</th>
                 <th className="px-5 py-3 font-medium">Importées</th>
                 <th className="px-5 py-3 font-medium">Erreurs</th>
+                {isDrh && <th className="px-5 py-3 font-medium">Importé par</th>}
                 <th className="px-5 py-3 font-medium" />
               </tr>
             </thead>
@@ -199,6 +200,11 @@ function ImportHistorySection() {
                         <EmptyCell />
                       )}
                     </td>
+                    {isDrh && (
+                      <td className="px-5 py-3 text-slate-500 dark:text-slate-400">
+                        {row.cree_par_username || <EmptyCell />}
+                      </td>
+                    )}
                     <td className="px-5 py-3 text-right">
                       {isDrh && (
                         <button
@@ -215,7 +221,7 @@ function ImportHistorySection() {
                   </tr>
                   {expanded === row.id && row.erreurs?.length > 0 && (
                     <tr className="bg-slate-50/60 dark:bg-slate-700/20">
-                      <td colSpan={8} className="px-5 py-3">
+                      <td colSpan={isDrh ? 9 : 8} className="px-5 py-3">
                         <ul className="space-y-1 text-xs text-slate-600 dark:text-slate-300">
                           {row.erreurs.map((e, i) => (
                             <li key={i}>Ligne {e.ligne} : {e.message}</li>
