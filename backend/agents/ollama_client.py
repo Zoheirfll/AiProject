@@ -1,3 +1,5 @@
+import re
+
 import ollama
 from django.conf import settings
 
@@ -128,15 +130,19 @@ def _parse_analysis_response(content, forcer_envoi):
     subject = "Sans objet"
     body = ""
 
+    # Models sometimes format "LABEL :" with a space before the colon
+    # (common in French output) — normalize before matching.
+    content = re.sub(r"\b(ENVOYER|SUJET|CORPS)\s*:", r"\1:", content, flags=re.IGNORECASE)
+
     first_line, _, rest = content.partition("\n")
     if first_line.upper().startswith("ENVOYER:"):
         decision = first_line.split(":", 1)[1].strip().upper()
         envoyer = forcer_envoi or decision.startswith("OUI")
         content = rest
 
-    if "SUJET:" in content and "CORPS:" in content:
-        before, after = content.split("CORPS:", 1)
-        subject = before.split("SUJET:", 1)[1].strip() or subject
+    if re.search(r"SUJET:", content, re.IGNORECASE) and re.search(r"CORPS:", content, re.IGNORECASE):
+        before, after = re.split(r"CORPS:", content, maxsplit=1, flags=re.IGNORECASE)
+        subject = re.split(r"SUJET:", before, maxsplit=1, flags=re.IGNORECASE)[1].strip() or subject
         body = after.strip()
     else:
         body = content.strip()

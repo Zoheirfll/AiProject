@@ -25,3 +25,15 @@ class ParseAnalysisResponseTests(TestCase):
         content = "ENVOYER: OUI\nSUJET: Vide\nCORPS:\n"
         with self.assertRaises(OllamaGenerationError):
             _parse_analysis_response(content, forcer_envoi=False)
+
+    def test_handles_space_before_colon(self):
+        """Some models write 'LABEL :' (space before colon) — real observed output."""
+        content = (
+            "ENVOYER : NON\n\n"
+            "SUJET : Liste de contrats avec dates d'échéance\n\n"
+            "CORPS : La liste fournie semble contenir une série de contrats."
+        )
+        result = _parse_analysis_response(content, forcer_envoi=True)
+        self.assertTrue(result["envoyer"])  # forced
+        self.assertEqual(result["subject"], "Liste de contrats avec dates d'échéance")
+        self.assertIn("série de contrats", result["body"])
