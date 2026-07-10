@@ -2,10 +2,27 @@ from datetime import date
 
 from django.db.utils import IntegrityError
 from django.test import TestCase
+from rest_framework.test import APITestCase
 
 from employees.models import Contract, Employee
 
 from .models import AlerteEnvoyee, RegleAutomatisation
+
+
+class RegleAutomatisationApiTests(APITestCase):
+    def test_create_and_list(self):
+        payload = {
+            "nom": "Alerte CDD",
+            "delais_jours": [45, 20, 7],
+            "destinataires": ["rh@example.com"],
+        }
+        response = self.client.post("/api/automatisations/", payload, format="json")
+        self.assertEqual(response.status_code, 201)
+
+        response = self.client.get("/api/automatisations/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]["nom"], "Alerte CDD")
 
 
 class RegleAutomatisationModelTests(TestCase):
