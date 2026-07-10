@@ -85,6 +85,33 @@ class EvaluerReglesTests(TestCase):
             AlerteEnvoyee.objects.filter(regle=self.regle, contract=self.contract, delai_jours=7).exists()
         )
 
+    @patch("automatisations.services._envoyer_alerte")
+    def test_isolates_per_contract_errors(self, mock_envoyer_alerte):
+        other_employee = Employee.objects.create(
+            matricule="M003", nom="Haddad", prenom="Amel",
+            email="amel@example.com", departement="IT",
+        )
+        today = timezone.localdate()
+        other_contract = Contract.objects.create(
+            employee=other_employee, type=Contract.Type.CDD,
+            date_debut=date(2026, 1, 1), date_fin=today + timedelta(days=7),
+        )
+        success_log = MailLog.objects.create(
+            employee=other_employee, regle=self.regle, sujet_demande="ok",
+            status=MailLog.Status.SENT,
+        )
+        mock_envoyer_alerte.side_effect = [RuntimeError("boom"), success_log]
+
+        resultats = evaluer_regles()
+
+        self.assertEqual(mock_envoyer_alerte.call_count, 2)
+        self.assertEqual(resultats, [success_log])
+        self.assertFalse(
+            AlerteEnvoyee.objects.filter(
+                regle=self.regle, contract=self.contract, delai_jours=7
+            ).exists()
+        )
+
     @patch("automatisations.services.generate_mail_content")
     def test_does_not_resend_within_dedup_window(self, mock_generate):
         mock_generate.return_value = {"subject": "S", "body": "B"}

@@ -118,7 +118,12 @@ def evaluer_regles(regle_id=None):
                 regle=regle, contract=contract, delai_jours=jours_restants
             ).exists():
                 continue
-            resultats.append(_envoyer_alerte(regle, contract, jours_restants))
+            try:
+                resultats.append(_envoyer_alerte(regle, contract, jours_restants))
+            except Exception:  # noqa: BLE001
+                # Isolate per-contract failures so one bad contract/rule never
+                # aborts processing of the remaining contracts/regles.
+                continue
 
     return resultats
 
