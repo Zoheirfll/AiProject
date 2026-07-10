@@ -7,7 +7,13 @@ class ExcelImport(models.Model):
         SUCCESS = "SUCCESS", "Succès"
         FAILED = "FAILED", "Échec"
 
+    class Source(models.TextChoices):
+        UPLOAD = "UPLOAD", "Upload manuel"
+        DOSSIER = "DOSSIER", "Dossier surveillé"
+
     fichier = models.FileField(upload_to="imports/")
+    nom_fichier_origine = models.CharField(max_length=255, blank=True)
+    source = models.CharField(max_length=10, choices=Source.choices, default=Source.UPLOAD)
     status = models.CharField(
         max_length=10, choices=Status.choices, default=Status.PENDING
     )
@@ -22,6 +28,41 @@ class ExcelImport(models.Model):
 
     def __str__(self):
         return f"Import {self.id} - {self.status}"
+
+
+IMPORT_MAPPING_FIELDS = [
+    "matricule",
+    "nom",
+    "prenom",
+    "email",
+    "departement",
+    "poste",
+    "categorie",
+    "num_contrat",
+    "date_embauche",
+    "date_fin_contrat",
+]
+
+
+class ImportConfig(models.Model):
+    """Singleton holding the column mapping and the watched-folder path.
+
+    Only one row is ever used (pk=1) — see ImportConfig.get_solo().
+    """
+
+    mapping = models.JSONField(
+        default=dict, blank=True,
+        help_text="system_field -> excel column header (lowercase)",
+    )
+    dossier_surveille = models.CharField(max_length=500, blank=True)
+
+    def __str__(self):
+        return "Configuration import"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
 
 
 class MailLog(models.Model):

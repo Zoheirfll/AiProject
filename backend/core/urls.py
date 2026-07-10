@@ -3,7 +3,9 @@ from django.urls import path
 from .views import (
     ConfigView,
     HealthView,
+    ImportDeleteView,
     ImportHistoryView,
+    ImportMappingView,
     ImportUploadView,
     MailApercuMasseView,
     MailApercuView,
@@ -19,6 +21,8 @@ urlpatterns = [
     path("core/health/", HealthView.as_view(), name="health"),
     path("imports/upload/", ImportUploadView.as_view(), name="imports-upload"),
     path("imports/historique/", ImportHistoryView.as_view(), name="imports-historique"),
+    path("imports/<int:pk>/", ImportDeleteView.as_view(), name="imports-delete"),
+    path("imports/mapping/", ImportMappingView.as_view(), name="imports-mapping"),
     path("mails/apercu/", MailApercuView.as_view(), name="mails-apercu"),
     path("mails/apercu-masse/", MailApercuMasseView.as_view(), name="mails-apercu-masse"),
     path("mails/envoyer/", MailEnvoyerView.as_view(), name="mails-envoyer"),

@@ -1,4 +1,9 @@
+import datetime
+import os
+import shutil
+
 import openpyxl
+from django.core.files import File
 
 from employees.models import Employee
 
@@ -11,13 +16,67 @@ COLUMN_MAP = {
     "departement": "departement",
     "département": "departement",
     "poste": "poste",
+    "categorie": "categorie",
+    "catégorie": "categorie",
+    "num_contrat": "num_contrat",
+    "n° contrat": "num_contrat",
     "date_embauche": "date_embauche",
     "date d'embauche": "date_embauche",
+    "date_fin_contrat": "date_fin_contrat",
+    "date fin contrat": "date_fin_contrat",
 }
+DATE_FIELDS = {"date_embauche", "date_fin_contrat"}
+TEXT_FIELDS = ["nom", "prenom", "email", "departement", "poste", "categorie", "num_contrat"]
+
+DATE_FORMATS = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"]
 
 
-def parse_employee_excel(file_obj):
+def _coerce_date(value):
+    """Return a date, or raise ValueError with a French message."""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime.datetime):
+        return value.date()
+    if isinstance(value, datetime.date):
+        return value
+    text = str(value).strip()
+    for fmt in DATE_FORMATS:
+        try:
+            return datetime.datetime.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    raise ValueError(f"date invalide: '{text}'")
+
+
+def build_field_map(header, mapping_override=None):
+    """Map spreadsheet column index -> system field name.
+
+    mapping_override, if given, is {system_field: excel_column_header}
+    (as saved via ImportConfig) and takes priority over the built-in
+    header aliases in COLUMN_MAP.
+    """
+    field_by_col = {}
+    if mapping_override:
+        header_to_field = {
+            str(col).strip().lower(): field
+            for field, col in mapping_override.items()
+            if col
+        }
+        for i, h in enumerate(header):
+            if h in header_to_field:
+                field_by_col[i] = header_to_field[h]
+    else:
+        for i, h in enumerate(header):
+            if h in COLUMN_MAP:
+                field_by_col[i] = COLUMN_MAP[h]
+    return field_by_col
+
+
+def parse_employee_excel(file_obj, mapping_override=None):
     """Parse an uploaded Excel file into Employee rows.
+
+    mapping_override: optional {system_field: excel_column_header} dict
+    (from ImportConfig.mapping) to use instead of the built-in COLUMN_MAP.
 
     Returns (total, imported, errors) where errors is a list of
     {"ligne": int, "message": str} dicts.
@@ -30,7 +89,7 @@ def parse_employee_excel(file_obj):
         return 0, 0, [{"ligne": 0, "message": "Fichier vide"}]
 
     header = [str(cell).strip().lower() if cell else "" for cell in rows[0]]
-    field_by_col = {i: COLUMN_MAP[h] for i, h in enumerate(header) if h in COLUMN_MAP}
+    field_by_col = build_field_map(header, mapping_override)
 
     missing = [c for c in REQUIRED_COLUMNS if c not in field_by_col.values()]
     if missing:
@@ -53,16 +112,15 @@ def parse_employee_excel(file_obj):
             continue
 
         try:
+            defaults = {
+                field: str(data.get(field) or "").strip() for field in TEXT_FIELDS
+            }
+            for field in DATE_FIELDS:
+                defaults[field] = _coerce_date(data.get(field))
+
             Employee.objects.update_or_create(
                 matricule=str(data["matricule"]).strip(),
-                defaults={
-                    "nom": str(data.get("nom", "")).strip(),
-                    "prenom": str(data.get("prenom", "")).strip(),
-                    "email": str(data.get("email") or "").strip(),
-                    "departement": str(data.get("departement") or "").strip(),
-                    "poste": str(data.get("poste") or "").strip(),
-                    "date_embauche": data.get("date_embauche") or None,
-                },
+                defaults=defaults,
             )
             imported += 1
         except Exception as exc:  # noqa: BLE001
@@ -122,3 +180,63 @@ def parse_mail_masse_excel(file_obj):
         )
 
     return rows, errors
+
+
+def scan_dossier_surveille():
+    """Scheduler tick: look for new Excel files in ImportConfig.dossier_surveille,
+    import each one, move it to a /processed subfolder, and notify over WebSocket.
+    """
+    from .models import ExcelImport, ImportConfig
+
+    config = ImportConfig.get_solo()
+    dossier = config.dossier_surveille
+    if not dossier or not os.path.isdir(dossier):
+        return
+
+    processed_dir = os.path.join(dossier, "processed")
+    os.makedirs(processed_dir, exist_ok=True)
+
+    for name in sorted(os.listdir(dossier)):
+        if not name.lower().endswith((".xlsx", ".xls")):
+            continue
+        path = os.path.join(dossier, name)
+        if not os.path.isfile(path):
+            continue
+
+        with open(path, "rb") as fh:
+            excel_import = ExcelImport.objects.create(
+                fichier=File(fh, name=name),
+                nom_fichier_origine=name,
+                source=ExcelImport.Source.DOSSIER,
+            )
+
+        try:
+            with excel_import.fichier.open("rb") as fh:
+                total, imported, errors = parse_employee_excel(fh, config.mapping or None)
+            excel_import.lignes_total = total
+            excel_import.lignes_importees = imported
+            excel_import.lignes_erreurs = len(errors)
+            excel_import.erreurs = errors
+            excel_import.status = (
+                ExcelImport.Status.SUCCESS
+                if imported > 0 or (total == 0 and not errors)
+                else ExcelImport.Status.FAILED
+            )
+        except Exception as exc:  # noqa: BLE001
+            excel_import.status = ExcelImport.Status.FAILED
+            excel_import.erreurs = [{"ligne": 0, "message": str(exc)}]
+        excel_import.save()
+
+        shutil.move(path, os.path.join(processed_dir, name))
+
+        from integrations.notifications import notify
+
+        notify(
+            {
+                "type": "import",
+                "id": excel_import.id,
+                "fichier": name,
+                "status": excel_import.status,
+                "lignes_importees": excel_import.lignes_importees,
+            }
+        )

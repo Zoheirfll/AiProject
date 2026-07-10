@@ -14,6 +14,7 @@ def start():
             evaluer_taches_surveillance,
             generer_rapport_quotidien,
         )
+        from core.services import scan_dossier_surveille
 
         scheduler.add_job(
             evaluer_regles,
@@ -31,6 +32,12 @@ def start():
             evaluer_taches_surveillance,
             trigger=IntervalTrigger(minutes=5),
             id="evaluer_taches_surveillance",
+            replace_existing=True,
+        )
+        scheduler.add_job(
+            scan_dossier_surveille,
+            trigger=IntervalTrigger(seconds=45),
+            id="scan_dossier_surveille",
             replace_existing=True,
         )
         scheduler.start()

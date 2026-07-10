@@ -11,7 +11,7 @@ from rest_framework.views import APIView
 from agents.ollama_client import OllamaGenerationError, generate_mail_content
 from employees.models import Employee
 
-from .models import ExcelImport, MailLog
+from .models import IMPORT_MAPPING_FIELDS, ExcelImport, ImportConfig, MailLog
 from .serializers import ExcelImportSerializer, MailLogSerializer
 from .services import parse_employee_excel, parse_mail_masse_excel
 
@@ -29,10 +29,13 @@ class ImportUploadView(APIView):
         if not uploaded_file:
             return Response({"detail": "Aucun fichier fourni."}, status=400)
 
-        excel_import = ExcelImport.objects.create(fichier=uploaded_file)
+        excel_import = ExcelImport.objects.create(
+            fichier=uploaded_file, nom_fichier_origine=uploaded_file.name
+        )
+        mapping = ImportConfig.get_solo().mapping or None
 
         try:
-            total, imported, errors = parse_employee_excel(excel_import.fichier)
+            total, imported, errors = parse_employee_excel(excel_import.fichier, mapping)
             excel_import.lignes_total = total
             excel_import.lignes_importees = imported
             excel_import.lignes_erreurs = len(errors)
@@ -53,6 +56,55 @@ class ImportUploadView(APIView):
 class ImportHistoryView(ListAPIView):
     queryset = ExcelImport.objects.all()
     serializer_class = ExcelImportSerializer
+
+
+class ImportDeleteView(APIView):
+    def delete(self, request, pk):
+        try:
+            excel_import = ExcelImport.objects.get(pk=pk)
+        except ExcelImport.DoesNotExist:
+            return Response({"detail": "Import introuvable."}, status=404)
+        excel_import.delete()
+        return Response(status=204)
+
+
+class ImportMappingView(APIView):
+    """Get/save the reusable Excel column mapping and the watched-folder path."""
+
+    def get(self, request):
+        config = ImportConfig.get_solo()
+        return Response(
+            {
+                "champs": IMPORT_MAPPING_FIELDS,
+                "mapping": config.mapping,
+                "dossier_surveille": config.dossier_surveille,
+            }
+        )
+
+    def put(self, request):
+        config = ImportConfig.get_solo()
+        mapping = request.data.get("mapping")
+        dossier_surveille = request.data.get("dossier_surveille")
+
+        if mapping is not None:
+            if not isinstance(mapping, dict):
+                return Response({"detail": "mapping doit être un objet."}, status=400)
+            config.mapping = {
+                field: str(col).strip().lower()
+                for field, col in mapping.items()
+                if field in IMPORT_MAPPING_FIELDS and col
+            }
+        if dossier_surveille is not None:
+            config.dossier_surveille = str(dossier_surveille).strip()
+
+        config.save()
+        return Response(
+            {
+                "champs": IMPORT_MAPPING_FIELDS,
+                "mapping": config.mapping,
+                "dossier_surveille": config.dossier_surveille,
+            }
+        )
 
 
 def _generer_brouillon(

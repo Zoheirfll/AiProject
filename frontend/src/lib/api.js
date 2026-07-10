@@ -4,11 +4,12 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
 })
 
-export async function uploadExcelImport(file) {
+export async function uploadExcelImport(file, onUploadProgress) {
   const formData = new FormData()
   formData.append('fichier', file)
   const { data } = await api.post('/api/imports/upload/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    onUploadProgress,
   })
   return data
 }
@@ -18,9 +19,28 @@ export async function fetchImportHistory() {
   return data
 }
 
-export async function fetchEmployees(params = {}) {
+export async function deleteImport(id) {
+  await api.delete(`/api/imports/${id}/`)
+}
+
+export async function fetchImportMapping() {
+  const { data } = await api.get('/api/imports/mapping/')
+  return data
+}
+
+export async function saveImportMapping(payload) {
+  const { data } = await api.put('/api/imports/mapping/', payload)
+  return data
+}
+
+export async function fetchEmployeesPage(params = {}) {
   const { data } = await api.get('/api/employes/', { params })
   return data
+}
+
+export async function fetchEmployees(params = {}) {
+  const { data } = await api.get('/api/employes/', { params: { page_size: 1000, ...params } })
+  return data.results ?? data
 }
 
 export async function generateMailApercu({

@@ -9,6 +9,8 @@ class ExcelImportSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "fichier",
+            "nom_fichier_origine",
+            "source",
             "status",
             "lignes_total",
             "lignes_importees",
