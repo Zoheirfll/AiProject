@@ -8,7 +8,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 GRH-Auto — HR automation platform for an Algerian HR department. Everything runs local/self-hosted to comply with Loi 18/07 (personal data must not leave national territory): no cloud LLM (Ollama only), no n8n Cloud, no external DB sync. SMTP (Gmail) is the only permitted outbound network call.
 
-Spec source of truth: `cahier_des_charges_grh_auto_v3.docx` (root).
+Spec source of truth: `cahier_des_charges_grh_auto_v4_agile.docx` (root) — Agile/Scrum reformat of `cahier_des_charges_grh_auto_v3.docx` (kept for reference: route lists, endpoint tables, directory tree, post-MVP roadmap not restated in v4). Same scope, organized as 8 Epics (E1-E9), 34 User Stories, 254 story points, 8 one-week sprints. Sprint 1 (E1 Infra) and Sprint 2 (E2 Import Excel) are done; Sprint 3+ (E3 Automatisations, E4 Email, E5 Dashboard, E6 AI Agents, E7 n8n, E8 Temps réel/Logs, E9 Export/Polish) not started.
+
+Note: v3/v4 assume a more granular Django app split (`imports`, `automatisations`, `mails`, `llm`, `agents`, `n8n_integration`, `notifications`, `dashboard`) than what currently exists (`core`, `employees`, `agents`, `integrations`) — not yet reconciled.
 
 ## Stack
 
