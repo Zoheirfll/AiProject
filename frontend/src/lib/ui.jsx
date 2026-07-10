@@ -5,8 +5,8 @@ export function PageHeader({ title, description, actions }) {
   return (
     <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900">{title}</h1>
-        {description && <p className="mt-1 text-sm text-slate-500">{description}</p>}
+        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
+        {description && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
     </div>
@@ -16,7 +16,7 @@ export function PageHeader({ title, description, actions }) {
 export function Card({ children, className = '', padded = true }) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-[var(--shadow-card)] ${
+      className={`rounded-xl border border-slate-200 bg-white shadow-[var(--shadow-card)] dark:border-slate-700 dark:bg-slate-800 ${
         padded ? 'p-5' : ''
       } ${className}`}
     >
@@ -35,9 +35,10 @@ export function Button({ variant = 'primary', size = 'md', className = '', ...pr
   }
   const variants = {
     primary: 'bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500 shadow-sm',
-    secondary: 'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400',
-    ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400',
-    danger: 'bg-white text-red-600 border border-red-200 hover:bg-red-50 focus-visible:ring-red-400',
+    secondary:
+      'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700',
+    ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-700',
+    danger: 'bg-white text-red-600 border border-red-200 hover:bg-red-50 focus-visible:ring-red-400 dark:bg-slate-800 dark:border-red-900 dark:hover:bg-red-950/40',
   }
   return (
     <button className={`${base} ${sizes[size]} ${variants[variant]} ${className}`} {...props} />
@@ -49,18 +50,18 @@ export function IconButton({ label, className = '', ...props }) {
     <button
       aria-label={label}
       title={label}
-      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 ${className}`}
+      className={`inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:hover:bg-slate-700 dark:hover:text-slate-200 ${className}`}
       {...props}
     />
   )
 }
 
 const badgeTones = {
-  success: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200',
-  warning: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200',
-  danger: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200',
-  neutral: 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200',
-  primary: 'bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-200',
+  success: 'bg-emerald-50 text-emerald-700 ring-1 ring-inset ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:ring-emerald-800',
+  warning: 'bg-amber-50 text-amber-700 ring-1 ring-inset ring-amber-200 dark:bg-amber-950/50 dark:text-amber-300 dark:ring-amber-800',
+  danger: 'bg-red-50 text-red-700 ring-1 ring-inset ring-red-200 dark:bg-red-950/50 dark:text-red-300 dark:ring-red-800',
+  neutral: 'bg-slate-100 text-slate-600 ring-1 ring-inset ring-slate-200 dark:bg-slate-700 dark:text-slate-300 dark:ring-slate-600',
+  primary: 'bg-primary-50 text-primary-700 ring-1 ring-inset ring-primary-200 dark:bg-primary-950/50 dark:text-primary-300 dark:ring-primary-800',
 }
 
 export function Badge({ tone = 'neutral', children }) {
@@ -74,15 +75,15 @@ export function Badge({ tone = 'neutral', children }) {
 export function Field({ label, hint, children }) {
   return (
     <div>
-      {label && <label className="mb-1 block text-sm font-medium text-slate-700">{label}</label>}
+      {label && <label className="mb-1 block text-sm font-medium text-slate-700 dark:text-slate-300">{label}</label>}
       {children}
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
+      {hint && <p className="mt-1 text-xs text-slate-400 dark:text-slate-500">{hint}</p>}
     </div>
   )
 }
 
 const inputBase =
-  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20'
+  'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500'
 
 export function Input(props) {
   return <input className={inputBase} {...props} />
@@ -102,10 +103,10 @@ export function Select({ children, ...props }) {
 
 export function Checkbox({ label, ...props }) {
   return (
-    <label className="flex items-center gap-2 text-sm text-slate-700">
+    <label className="flex items-center gap-2 text-sm text-slate-700 dark:text-slate-300">
       <input
         type="checkbox"
-        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500"
+        className="h-4 w-4 rounded border-slate-300 text-primary-600 focus:ring-primary-500 dark:border-slate-600 dark:bg-slate-900"
         {...props}
       />
       {label}
@@ -117,9 +118,9 @@ export function Modal({ open, onClose, title, children }) {
   if (!open) return null
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-[var(--shadow-overlay)]">
-        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
-          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-[var(--shadow-overlay)] dark:bg-slate-800">
+        <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-700">
+          <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">{title}</h2>
           <IconButton label="Fermer" onClick={onClose}>
             <CloseIcon />
           </IconButton>
@@ -132,12 +133,12 @@ export function Modal({ open, onClose, title, children }) {
 
 export function EmptyState({ title, description, action }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center">
-      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400">
+    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50/60 px-6 py-14 text-center dark:border-slate-600 dark:bg-slate-800/40">
+      <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-slate-100 text-slate-400 dark:bg-slate-700 dark:text-slate-400">
         <InboxIcon />
       </div>
-      <p className="font-medium text-slate-700">{title}</p>
-      {description && <p className="mt-1 max-w-sm text-sm text-slate-400">{description}</p>}
+      <p className="font-medium text-slate-700 dark:text-slate-200">{title}</p>
+      {description && <p className="mt-1 max-w-sm text-sm text-slate-400 dark:text-slate-500">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
   )
@@ -169,7 +170,7 @@ export function Toast({ message, tone = 'success', onDismiss }) {
 }
 
 export function EmptyCell({ children = '—' }) {
-  return <span className="text-slate-300">{children}</span>
+  return <span className="text-slate-300 dark:text-slate-600">{children}</span>
 }
 
 // --- Minimal inline icon set (no external icon dependency) ---
@@ -258,6 +259,23 @@ export function CheckCircleIcon({ className = 'h-4 w-4' }) {
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
       <circle cx="10" cy="10" r="7.5" />
       <path d="M7 10.2l2 2 4-4.4" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function SunIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="10" r="3.5" />
+      <path d="M10 2.5v2M10 15.5v2M4.2 4.2l1.4 1.4M14.4 14.4l1.4 1.4M2.5 10h2M15.5 10h2M4.2 15.8l1.4-1.4M14.4 5.6l1.4-1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function MoonIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M17 12.5A7 7 0 018 3a7 7 0 109 9.5z" />
     </svg>
   )
 }

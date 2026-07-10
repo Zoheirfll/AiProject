@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @theme {
   --color-primary-50: #eef2ff;
   --color-primary-100: #e0e7ff;
@@ -27,6 +29,10 @@
 
   body {
     background-color: var(--color-slate-50, #f8fafc);
+  }
+
+  .dark body {
+    background-color: var(--color-slate-900, #0f172a);
   }
 
   ::selection {
