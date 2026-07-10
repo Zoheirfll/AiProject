@@ -1,4 +1,6 @@
 from django.conf import settings
+from django.core.mail import EmailMessage, get_connection
+from django.utils import timezone
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
@@ -80,6 +82,78 @@ class MailApercuView(APIView):
         mail_log.save()
 
         return Response(MailLogSerializer(mail_log).data, status=201)
+
+
+class MailEnvoyerView(APIView):
+    def post(self, request):
+        mail_log_id = request.data.get("mail_log_id")
+        subject = request.data.get("subject")
+        body = request.data.get("body")
+
+        if not mail_log_id:
+            return Response({"detail": "mail_log_id est requis."}, status=400)
+
+        try:
+            mail_log = MailLog.objects.get(pk=mail_log_id)
+        except MailLog.DoesNotExist:
+            return Response({"detail": "Mail introuvable."}, status=404)
+
+        if subject:
+            mail_log.subject = subject
+        if body:
+            mail_log.body = body
+
+        destinataire = mail_log.employee.email if mail_log.employee else None
+        if not destinataire:
+            return Response({"detail": "L'employé n'a pas d'adresse email."}, status=400)
+
+        try:
+            EmailMessage(
+                subject=mail_log.subject,
+                body=mail_log.body,
+                to=[destinataire],
+                cc=mail_log.cc or None,
+                bcc=mail_log.bcc or None,
+            ).send(fail_silently=False)
+            mail_log.status = MailLog.Status.SENT
+            mail_log.sent_at = timezone.now()
+        except Exception as exc:  # noqa: BLE001
+            mail_log.status = MailLog.Status.FAILED
+            mail_log.erreur = str(exc)
+        mail_log.save()
+
+        return Response(MailLogSerializer(mail_log).data, status=200)
+
+
+class MailHistoriqueView(ListAPIView):
+    serializer_class = MailLogSerializer
+
+    def get_queryset(self):
+        qs = MailLog.objects.all()
+        statut = self.request.query_params.get("statut")
+        employee_id = self.request.query_params.get("employee")
+        date_str = self.request.query_params.get("date")
+
+        if statut:
+            qs = qs.filter(status=statut.upper())
+        if employee_id:
+            qs = qs.filter(employee_id=employee_id)
+        if date_str:
+            qs = qs.filter(created_at__date=date_str)
+
+        return qs
+
+
+class SmtpTestView(APIView):
+    def post(self, request):
+        connection = get_connection(fail_silently=False)
+        try:
+            connection.open()
+            connection.close()
+        except Exception as exc:  # noqa: BLE001
+            return Response({"status": "erreur", "detail": str(exc)}, status=400)
+
+        return Response({"status": "ok"})
 
 
 class ConfigView(APIView):

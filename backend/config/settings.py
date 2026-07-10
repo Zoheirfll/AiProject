@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     "employees",
     "agents",
     "integrations",
+    "automatisations",
 ]
 
 MIDDLEWARE = [
