@@ -49,6 +49,22 @@ export async function envoyerMail({ mailLogId, subject, body }) {
   return data
 }
 
+export async function generateMailApercuMasse({ file, sujetDemande, promptOverride }) {
+  const formData = new FormData()
+  formData.append('fichier', file)
+  if (sujetDemande) formData.append('sujet_demande', sujetDemande)
+  if (promptOverride) formData.append('prompt_override', promptOverride)
+  const { data } = await api.post('/api/mails/apercu-masse/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function envoyerMailsMasse(mails) {
+  const { data } = await api.post('/api/mails/envoyer-masse/', { mails })
+  return data
+}
+
 export async function fetchMailHistorique(params = {}) {
   const { data } = await api.get('/api/mails/historique/', { params })
   return data

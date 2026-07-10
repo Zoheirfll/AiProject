@@ -166,3 +166,61 @@ class ImportUploadApiTests(APITestCase):
         self.assertEqual(response.status_code, 201)
         self.assertEqual(response.data["status"], "SUCCESS")
         self.assertEqual(response.data["lignes_importees"], 1)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class MailMasseApiTests(APITestCase):
+    @patch("core.views.generate_mail_content")
+    def test_apercu_masse_generates_one_draft_per_row(self, mock_generate):
+        mock_generate.return_value = {"subject": "S", "body": "B"}
+        content = _build_xlsx([
+            ["nom", "email", "sujet"],
+            ["Fournisseur A", "a@example.com", "Relance facture"],
+            ["Fournisseur B", "b@example.com", ""],
+        ])
+        upload = SimpleUploadedFile(
+            "masse.xlsx", content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            "/api/mails/apercu-masse/",
+            {"fichier": upload, "sujet_demande": "Sujet par défaut"},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(len(response.data["drafts"]), 2)
+        self.assertEqual(mock_generate.call_count, 2)
+        self.assertEqual(response.data["drafts"][0]["destinataire_email"], "a@example.com")
+        self.assertEqual(response.data["drafts"][0]["status"], "DRAFT")
+
+    def test_apercu_masse_requires_email_column(self):
+        content = _build_xlsx([["nom", "sujet"], ["A", "S"]])
+        upload = SimpleUploadedFile(
+            "masse.xlsx", content, content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+
+        response = self.client.post(
+            "/api/mails/apercu-masse/", {"fichier": upload}, format="multipart",
+        )
+
+        self.assertEqual(response.status_code, 400)
+
+    def test_envoyer_masse_sends_each_draft(self):
+        m1 = MailLog.objects.create(
+            destinataire_email="a@example.com", sujet_demande="S", subject="Sujet A", body="Corps A",
+        )
+        m2 = MailLog.objects.create(
+            destinataire_email="b@example.com", sujet_demande="S", subject="Sujet B", body="Corps B",
+        )
+
+        response = self.client.post(
+            "/api/mails/envoyer-masse/",
+            {"mails": [{"mail_log_id": m1.id}, {"mail_log_id": m2.id}]},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 2)
+        self.assertTrue(all(r["status"] == "SENT" for r in response.data))
+        self.assertEqual(len(mail.outbox), 2)

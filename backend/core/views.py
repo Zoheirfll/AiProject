@@ -13,7 +13,7 @@ from employees.models import Employee
 
 from .models import ExcelImport, MailLog
 from .serializers import ExcelImportSerializer, MailLogSerializer
-from .services import parse_employee_excel
+from .services import parse_employee_excel, parse_mail_masse_excel
 
 
 class HealthView(APIView):
@@ -55,6 +55,40 @@ class ImportHistoryView(ListAPIView):
     serializer_class = ExcelImportSerializer
 
 
+def _generer_brouillon(
+    sujet_demande, prompt_override=None, employee=None, destinataire_nom="", destinataire_email=""
+):
+    """Create a MailLog and fill it via Ollama. Shared by single and bulk drafting."""
+    if employee is not None:
+        contact = employee
+    else:
+        contact = SimpleNamespace(
+            prenom=destinataire_nom or destinataire_email,
+            nom="",
+            poste=None,
+            departement=None,
+        )
+
+    mail_log = MailLog.objects.create(
+        employee=employee,
+        destinataire_nom=destinataire_nom,
+        destinataire_email=destinataire_email,
+        sujet_demande=sujet_demande,
+    )
+
+    try:
+        result = generate_mail_content(contact, sujet_demande, prompt_override)
+        mail_log.subject = result["subject"]
+        mail_log.body = result["body"]
+        mail_log.status = MailLog.Status.DRAFT
+    except OllamaGenerationError as exc:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+    mail_log.save()
+
+    return mail_log
+
+
 class MailApercuView(APIView):
     def post(self, request):
         employee_id = request.data.get("employee_id")
@@ -77,33 +111,97 @@ class MailApercuView(APIView):
                 employee = Employee.objects.get(pk=employee_id)
             except Employee.DoesNotExist:
                 return Response({"detail": "Employé introuvable."}, status=404)
-            contact = employee
-        else:
-            contact = SimpleNamespace(
-                prenom=destinataire_nom or destinataire_email,
-                nom="",
-                poste=None,
-                departement=None,
-            )
 
-        mail_log = MailLog.objects.create(
+        mail_log = _generer_brouillon(
+            sujet_demande,
+            prompt_override,
             employee=employee,
             destinataire_nom=destinataire_nom,
             destinataire_email=destinataire_email,
-            sujet_demande=sujet_demande,
         )
 
-        try:
-            result = generate_mail_content(contact, sujet_demande, prompt_override)
-            mail_log.subject = result["subject"]
-            mail_log.body = result["body"]
-            mail_log.status = MailLog.Status.DRAFT
-        except OllamaGenerationError as exc:
-            mail_log.status = MailLog.Status.FAILED
-            mail_log.erreur = str(exc)
-        mail_log.save()
-
         return Response(MailLogSerializer(mail_log).data, status=201)
+
+
+class MailApercuMasseView(APIView):
+    """Bulk draft generation from an uploaded Excel file (columns: email, nom, sujet)."""
+
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        uploaded_file = request.FILES.get("fichier")
+        if not uploaded_file:
+            return Response({"detail": "Aucun fichier fourni."}, status=400)
+
+        sujet_defaut = (request.data.get("sujet_demande") or "").strip()
+        prompt_override = request.data.get("prompt_override")
+
+        try:
+            rows, parse_errors = parse_mail_masse_excel(uploaded_file)
+        except Exception as exc:  # noqa: BLE001
+            return Response({"detail": f"Fichier illisible: {exc}"}, status=400)
+
+        if parse_errors and not rows:
+            return Response({"detail": parse_errors[0]["message"], "erreurs": parse_errors}, status=400)
+
+        drafts = []
+        for row in rows:
+            sujet_demande = row["sujet"] or sujet_defaut
+            if not sujet_demande:
+                mail_log = MailLog.objects.create(
+                    destinataire_nom=row["nom"],
+                    destinataire_email=row["email"],
+                    sujet_demande="",
+                    status=MailLog.Status.FAILED,
+                    erreur="Aucun sujet fourni (ni colonne 'sujet' ni sujet par défaut).",
+                )
+            else:
+                mail_log = _generer_brouillon(
+                    sujet_demande,
+                    prompt_override,
+                    destinataire_nom=row["nom"],
+                    destinataire_email=row["email"],
+                )
+            drafts.append(mail_log)
+
+        return Response(
+            {
+                "drafts": MailLogSerializer(drafts, many=True).data,
+                "erreurs": parse_errors,
+            },
+            status=201,
+        )
+
+
+def _envoyer_mail_log(mail_log, subject=None, body=None):
+    if subject:
+        mail_log.subject = subject
+    if body:
+        mail_log.body = body
+
+    destinataire = mail_log.email_destinataire
+    if not destinataire:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = "Aucune adresse email de destinataire."
+        mail_log.save()
+        return mail_log
+
+    try:
+        EmailMessage(
+            subject=mail_log.subject,
+            body=mail_log.body,
+            to=[destinataire],
+            cc=mail_log.cc or None,
+            bcc=mail_log.bcc or None,
+        ).send(fail_silently=False)
+        mail_log.status = MailLog.Status.SENT
+        mail_log.sent_at = timezone.now()
+    except Exception as exc:  # noqa: BLE001
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+    mail_log.save()
+
+    return mail_log
 
 
 class MailEnvoyerView(APIView):
@@ -120,31 +218,32 @@ class MailEnvoyerView(APIView):
         except MailLog.DoesNotExist:
             return Response({"detail": "Mail introuvable."}, status=404)
 
-        if subject:
-            mail_log.subject = subject
-        if body:
-            mail_log.body = body
-
-        destinataire = mail_log.email_destinataire
-        if not destinataire:
+        if not mail_log.email_destinataire:
             return Response({"detail": "Aucune adresse email de destinataire."}, status=400)
 
-        try:
-            EmailMessage(
-                subject=mail_log.subject,
-                body=mail_log.body,
-                to=[destinataire],
-                cc=mail_log.cc or None,
-                bcc=mail_log.bcc or None,
-            ).send(fail_silently=False)
-            mail_log.status = MailLog.Status.SENT
-            mail_log.sent_at = timezone.now()
-        except Exception as exc:  # noqa: BLE001
-            mail_log.status = MailLog.Status.FAILED
-            mail_log.erreur = str(exc)
-        mail_log.save()
+        mail_log = _envoyer_mail_log(mail_log, subject, body)
 
         return Response(MailLogSerializer(mail_log).data, status=200)
+
+
+class MailEnvoyerMasseView(APIView):
+    """Send a batch of previously-drafted MailLogs (e.g. from /mails/apercu-masse/)."""
+
+    def post(self, request):
+        items = request.data.get("mails")
+        if not isinstance(items, list) or not items:
+            return Response({"detail": "mails (liste) est requis."}, status=400)
+
+        results = []
+        for item in items:
+            mail_log_id = item.get("mail_log_id")
+            try:
+                mail_log = MailLog.objects.get(pk=mail_log_id)
+            except (MailLog.DoesNotExist, TypeError, ValueError):
+                continue
+            results.append(_envoyer_mail_log(mail_log, item.get("subject"), item.get("body")))
+
+        return Response(MailLogSerializer(results, many=True).data, status=200)
 
 
 class MailHistoriqueView(ListAPIView):

@@ -69,3 +69,56 @@ def parse_employee_excel(file_obj):
             errors.append({"ligne": line_num, "message": str(exc)})
 
     return total, imported, errors
+
+
+MAIL_COLUMN_MAP = {
+    "nom": "nom",
+    "email": "email",
+    "sujet": "sujet",
+}
+
+
+def parse_mail_masse_excel(file_obj):
+    """Parse an uploaded Excel file into ad-hoc mail recipients.
+
+    Expected columns: email (required), nom (optional), sujet (optional —
+    falls back to a default subject supplied by the caller when blank).
+
+    Returns (rows, errors) where rows is a list of {"nom", "email", "sujet"}
+    dicts and errors is a list of {"ligne": int, "message": str} dicts.
+    """
+    workbook = openpyxl.load_workbook(file_obj, data_only=True)
+    sheet = workbook.active
+
+    all_rows = list(sheet.iter_rows(values_only=True))
+    if not all_rows:
+        return [], [{"ligne": 0, "message": "Fichier vide"}]
+
+    header = [str(cell).strip().lower() if cell else "" for cell in all_rows[0]]
+    field_by_col = {i: MAIL_COLUMN_MAP[h] for i, h in enumerate(header) if h in MAIL_COLUMN_MAP}
+
+    if "email" not in field_by_col.values():
+        return [], [{"ligne": 1, "message": "Colonne manquante: email"}]
+
+    rows = []
+    errors = []
+
+    for line_num, row in enumerate(all_rows[1:], start=2):
+        if all(cell is None for cell in row):
+            continue
+        data = {field_by_col[i]: row[i] for i in field_by_col if i < len(row)}
+
+        email = str(data.get("email") or "").strip()
+        if not email:
+            errors.append({"ligne": line_num, "message": "Email manquant"})
+            continue
+
+        rows.append(
+            {
+                "nom": str(data.get("nom") or "").strip(),
+                "email": email,
+                "sujet": str(data.get("sujet") or "").strip(),
+            }
+        )
+
+    return rows, errors
