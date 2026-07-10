@@ -12,5 +12,6 @@ urlpatterns = [
     path("api/", include("agents.urls")),
     path("api/", include("integrations.urls")),
     path("api/", include("automatisations.urls")),
+    path("api/", include("dashboard.urls")),
     path("graphql/", csrf_exempt(AsyncGraphQLView.as_view(schema=schema))),
 ]

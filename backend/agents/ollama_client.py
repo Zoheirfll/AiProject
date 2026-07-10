@@ -111,7 +111,7 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
 
     try:
         response = _client().chat(
-            model=settings.OLLAMA_MODEL,
+            model=settings.OLLAMA_SURVEILLANCE_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": contenu_tronque},

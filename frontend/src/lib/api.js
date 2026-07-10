@@ -191,3 +191,28 @@ export async function fetchTacheHistorique(tacheId) {
   const { data } = await api.get('/api/surveillance/historique/', { params: { tache: tacheId } })
   return data
 }
+
+export async function fetchDashboardKpis() {
+  const { data } = await api.get('/api/dashboard/kpis/')
+  return data
+}
+
+export async function fetchMailsEvolution(jours = 30) {
+  const { data } = await api.get('/api/dashboard/mails-evolution/', { params: { jours } })
+  return data
+}
+
+export async function fetchAutomatisationsTypes() {
+  const { data } = await api.get('/api/dashboard/automatisations-types/')
+  return data
+}
+
+export async function fetchContratsParMois() {
+  const { data } = await api.get('/api/dashboard/contrats-par-mois/')
+  return data
+}
+
+export async function fetchActiviteRecente(limite = 20) {
+  const { data } = await api.get('/api/dashboard/activite/', { params: { limite } })
+  return data
+}

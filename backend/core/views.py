@@ -259,6 +259,11 @@ def _envoyer_mail_log(mail_log, subject=None, body=None, format=None):
         mail_log.erreur = str(exc)
     mail_log.save()
 
+    if mail_log.status == MailLog.Status.SENT:
+        from integrations.notifications import notify
+
+        notify({"type": "mail", "id": mail_log.id, "subject": mail_log.subject})
+
     return mail_log
 
 

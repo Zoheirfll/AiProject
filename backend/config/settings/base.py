@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     "agents",
     "integrations",
     "automatisations",
+    "dashboard",
 ]
 
 MIDDLEWARE = [
@@ -105,6 +106,12 @@ CORS_ALLOWED_ORIGINS = env.list(
 # Ollama / LangChain
 OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="http://localhost:11434")
 OLLAMA_MODEL = env("OLLAMA_MODEL", default="llama3")
+# Smaller/faster model used for document-surveillance analysis (TacheSurveillance),
+# which sends larger inputs than mail generation — keep it snappy on CPU-only setups.
+OLLAMA_SURVEILLANCE_MODEL = env("OLLAMA_SURVEILLANCE_MODEL", default="qwen2.5:1.5b")
+
+# n8n (dashboard health check — reached by Docker service name inside the Compose network)
+N8N_URL = env("N8N_INTERNAL_URL", default="http://n8n:5678")
 
 # Email (SMTP Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

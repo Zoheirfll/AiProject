@@ -115,6 +115,9 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_e
 
     if marquer_alerte:
         AlerteEnvoyee.objects.create(regle=regle, contract=contract, delai_jours=jours_restants)
+        from integrations.notifications import notify
+
+        notify({"type": "alerte", "regle": regle.nom, "employee": str(employee)})
 
     return mail_log
 
@@ -366,6 +369,10 @@ def _finaliser_execution(tache, marquer_execution, envoye, resume):
     if marquer_execution:
         tache.derniere_execution = timezone.now()
         tache.save(update_fields=["derniere_execution"])
+    if envoye:
+        from integrations.notifications import notify
+
+        notify({"type": "surveillance", "tache": tache.nom})
     return execution
 
 
