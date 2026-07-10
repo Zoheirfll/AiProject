@@ -28,6 +28,7 @@ import {
 } from '../lib/ui'
 import { statusTone } from '../theme'
 import { useAuth } from '../lib/AuthContext'
+import { describeApiError } from '../lib/errors'
 
 const STATUS_LABEL = { SUCCESS: 'Succès', FAILED: 'Échec', PENDING: 'En cours' }
 const SOURCE_LABEL = { UPLOAD: 'Upload manuel', DOSSIER: 'Dossier surveillé' }
@@ -395,7 +396,7 @@ export default function ImportsPage() {
     },
     onError: (err) => {
       setProgress(0)
-      setError(err?.response?.data?.detail || "Échec de l'import.")
+      setError(describeApiError(err, "Échec de l'import."))
     },
   })
 

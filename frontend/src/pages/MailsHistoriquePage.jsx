@@ -4,6 +4,7 @@ import { fetchMailHistorique, testerSmtp } from '../lib/api'
 import { Badge, Button, Card, CheckCircleIcon, EmptyCell, EmptyState, PageHeader, Spinner, Toast } from '../lib/ui'
 import { statusTone } from '../theme'
 import { useAuth } from '../lib/AuthContext'
+import { describeApiError } from '../lib/errors'
 
 const STATUS_LABEL = { SENT: 'Envoyé', FAILED: 'Échec', DRAFT: 'Brouillon' }
 
@@ -46,7 +47,7 @@ export default function MailsHistoriquePage() {
       {smtpTestMutation.isError && (
         <Toast
           tone="error"
-          message={smtpTestMutation.error?.response?.data?.detail || 'Échec du test SMTP.'}
+          message={describeApiError(smtpTestMutation.error, 'Échec du test SMTP.')}
           onDismiss={() => smtpTestMutation.reset()}
         />
       )}

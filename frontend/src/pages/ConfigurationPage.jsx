@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { fetchAutomatisationConfig, saveAutomatisationConfig, testerSmtp } from '../lib/api'
+import { describeApiError } from '../lib/errors'
 import { Button, Card, Field, PageHeader, Spinner, Textarea, Toast } from '../lib/ui'
 
 export default function ConfigurationPage() {
@@ -92,7 +93,7 @@ export default function ConfigurationPage() {
         {smtpTestMutation.isError && (
           <Toast
             tone="error"
-            message={smtpTestMutation.error?.response?.data?.detail || 'Échec du test SMTP.'}
+            message={describeApiError(smtpTestMutation.error, 'Échec du test SMTP.')}
             onDismiss={() => smtpTestMutation.reset()}
           />
         )}

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuth } from '../lib/AuthContext'
+import { describeApiError } from '../lib/errors'
 import { Button, Card, Field, Input, Spinner, Toast } from '../lib/ui'
 
 export default function LoginPage() {
@@ -23,7 +24,7 @@ export default function LoginPage() {
     try {
       await login(username, password)
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Échec de la connexion.')
+      setError(describeApiError(err, 'Échec de la connexion. Réessayez.'))
     } finally {
       setPending(false)
     }

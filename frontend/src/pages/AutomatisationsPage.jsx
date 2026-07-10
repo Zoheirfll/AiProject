@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../lib/AuthContext'
+import { describeApiError } from '../lib/errors'
 import {
   createRegle,
   deleteRegle,
@@ -341,7 +342,7 @@ export default function AutomatisationsPage() {
       setTestRegleTarget(null)
       setToast({ message: `Test envoyé — statut: ${data.status === 'SENT' ? 'Envoyé' : data.status}.`, tone: 'success' })
     },
-    onError: (err) => setToast({ message: err?.response?.data?.detail || 'Échec du test.', tone: 'error' }),
+    onError: (err) => setToast({ message: describeApiError(err, 'Échec du test.'), tone: 'error' }),
     onSettled: () => setActiveId(null),
   })
 

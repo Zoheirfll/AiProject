@@ -22,6 +22,7 @@ import {
   UploadIcon,
 } from '../lib/ui'
 import { statusTone } from '../theme'
+import { describeApiError } from '../lib/errors'
 
 const MODES = [
   { value: 'employee', label: 'Employé existant' },
@@ -139,7 +140,7 @@ function SingleMailFlow({ mode, employeesQuery }) {
       </Card>
 
       {apercuMutation.isError && (
-        <Toast tone="error" message={apercuMutation.error?.response?.data?.detail || 'Erreur lors de la génération.'} onDismiss={() => apercuMutation.reset()} />
+        <Toast tone="error" message={describeApiError(apercuMutation.error, 'Erreur lors de la génération.')} onDismiss={() => apercuMutation.reset()} />
       )}
 
       {result && result.status === 'FAILED' && <Toast tone="error" message={result.erreur} onDismiss={() => {}} />}
@@ -188,7 +189,7 @@ function SingleMailFlow({ mode, employeesQuery }) {
           {envoyerMutation.isError && (
             <Toast
               tone="error"
-              message={envoyerMutation.error?.response?.data?.detail || "Échec de l'envoi."}
+              message={describeApiError(envoyerMutation.error, "Échec de l'envoi.")}
               onDismiss={() => envoyerMutation.reset()}
             />
           )}
@@ -275,7 +276,7 @@ function ExcelMasseFlow() {
       {apercuMasseMutation.isError && (
         <Toast
           tone="error"
-          message={apercuMasseMutation.error?.response?.data?.detail || 'Échec de la génération en masse.'}
+          message={describeApiError(apercuMasseMutation.error, 'Échec de la génération en masse.')}
           onDismiss={() => apercuMasseMutation.reset()}
         />
       )}

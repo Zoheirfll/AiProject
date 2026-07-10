@@ -109,6 +109,14 @@ CORS_ALLOWED_ORIGINS = env.list(
 # on cross-origin XHR/fetch calls from the Vite dev server (port 5173) to
 # the API (port 8000) — both are localhost, different ports.
 CORS_ALLOW_CREDENTIALS = True
+# Django's CSRF middleware checks the Origin header against this list for
+# any unsafe (POST/PUT/PATCH/DELETE) request — separate from, and just as
+# required as, CORS_ALLOWED_ORIGINS above. Missing this causes every
+# authenticated write (including login/logout) to fail with a raw
+# "CSRF Failed: Origin checking failed" error.
+CSRF_TRUSTED_ORIGINS = env.list(
+    "CSRF_TRUSTED_ORIGINS", default=["http://localhost:5173", "http://127.0.0.1:5173"]
+)
 
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
