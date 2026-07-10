@@ -75,6 +75,7 @@ services:
       - .env
     environment:
       N8N_HOST: ${N8N_HOST}
+      N8N_LISTEN_ADDRESS: 0.0.0.0
       N8N_PORT: ${N8N_PORT}
       N8N_PROTOCOL: ${N8N_PROTOCOL}
       N8N_BASIC_AUTH_ACTIVE: ${N8N_BASIC_AUTH_ACTIVE}
@@ -82,6 +83,17 @@ services:
       N8N_BASIC_AUTH_PASSWORD: ${N8N_BASIC_AUTH_PASSWORD}
       N8N_ENCRYPTION_KEY: ${N8N_ENCRYPTION_KEY}
       WEBHOOK_URL: ${N8N_WEBHOOK_URL}
+      # Loi 18/07 — no outbound calls to n8n.io (telemetry, template
+      # fetching, update/version checks): everything must stay local.
+      N8N_DIAGNOSTICS_ENABLED: "false"
+      N8N_VERSION_NOTIFICATIONS_ENABLED: "false"
+      N8N_TEMPLATES_ENABLED: "false"
+      N8N_PERSONALIZATION_ENABLED: "false"
+      N8N_HIRING_BANNER_ENABLED: "false"
+      # US-E7-03: reachable by the workflow templates in n8n/workflows/ to
+      # call GRH-Auto's /api/n8n/* endpoints — service name on the same
+      # Docker Compose network, not localhost.
+      GRH_AUTO_URL: http://backend:8000
       DB_TYPE: postgresdb
       DB_POSTGRESDB_HOST: db
       DB_POSTGRESDB_DATABASE: ${POSTGRES_DB}

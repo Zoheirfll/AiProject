@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     "integrations",
     "automatisations",
     "dashboard",
+    "n8n_integration",
 ]
 
 AUTH_USER_MODEL = "accounts.User"
@@ -142,6 +143,8 @@ OLLAMA_SURVEILLANCE_MODEL = env("OLLAMA_SURVEILLANCE_MODEL", default="qwen2.5:1.
 
 # n8n (dashboard health check — reached by Docker service name inside the Compose network)
 N8N_URL = env("N8N_INTERNAL_URL", default="http://n8n:5678")
+# US-E7-02: static bearer token n8n workflows use to call /api/n8n/* — .env only, never hardcoded.
+N8N_API_TOKEN = env("N8N_API_TOKEN", default="")
 
 # Email (SMTP Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

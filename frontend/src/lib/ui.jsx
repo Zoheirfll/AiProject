@@ -235,6 +235,15 @@ export function UploadIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function ExternalLinkIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M8 5H5.5A1.5 1.5 0 004 6.5v8A1.5 1.5 0 005.5 16h8a1.5 1.5 0 001.5-1.5V12" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M11 4h5v5M15.5 4.5L9 11" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function DownloadIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

@@ -56,10 +56,34 @@ Si la double authentification (2FA) est activée sur le compte Gmail (recommand�
 
 La connexion SMTP peut être testée sans envoyer de mail depuis la page `/configuration` de l'application ("Tester la connexion SMTP").
 
+## n8n — accès réseau local et pare-feu Windows (US-E7-01)
+
+n8n est accessible en HTTP simple (pas HTTPS) sur `http://<IP-de-ce-PC>:5678` depuis n'importe quelle machine du réseau local (le conteneur écoute déjà sur `0.0.0.0`, voir `N8N_LISTEN_ADDRESS` dans `docker-compose.yml`). Deux choses à faire manuellement, **une seule fois** :
+
+1. **Trouver l'IP locale du PC** (PowerShell) :
+   ```powershell
+   ipconfig | Select-String "IPv4"
+   ```
+   Mettre à jour `N8N_HOST` dans `.env` avec cette IP (ex: `N8N_HOST=192.168.1.42`), puis `docker compose up -d n8n`.
+
+2. **Ouvrir le port 5678 au réseau local uniquement** (pare-feu Windows), en PowerShell **en administrateur** — à exécuter toi-même, ceci n'est pas fait automatiquement :
+   ```powershell
+   New-NetFirewallRule -DisplayName "GRH-Auto n8n (LAN)" -Direction Inbound -Protocol TCP -LocalPort 5678 -Action Allow -Profile Private
+   ```
+   `-Profile Private` limite la règle au réseau local (pas au profil "Public"/internet) — c'est ce qui garantit qu'aucune donnée ne sort du réseau local (conformité Loi 18/07). Ne pas utiliser `-Profile Any`.
+
+   Pour vérifier la règle : `Get-NetFirewallRule -DisplayName "GRH-Auto n8n (LAN)"`. Pour la retirer : `Remove-NetFirewallRule -DisplayName "GRH-Auto n8n (LAN)"`.
+
+3. **Authentification n8n** : déjà activée par défaut (`N8N_BASIC_AUTH_ACTIVE=true` dans `.env`) — un identifiant/mot de passe est demandé à la connexion. Changer `N8N_BASIC_AUTH_PASSWORD` dans `.env` avant tout usage réel.
+
+`docker-compose.yml` désactive aussi la télémétrie n8n et les vérifications de mise à jour (`N8N_DIAGNOSTICS_ENABLED`, `N8N_VERSION_NOTIFICATIONS_ENABLED`, etc. à `false`) pour qu'aucun appel sortant vers n8n.io ne se produise.
+
+Templates de workflows prêts à importer : voir `n8n/workflows/README.md`.
+
 ## Structure
 
 ```
-backend/        Django (apps: core, employees, agents, integrations)
+backend/        Django (apps: accounts, core, employees, agents, automatisations, dashboard, integrations, n8n_integration)
 frontend/       React + Vite + Tailwind
 n8n/workflows/  Workflows n8n exportés
 docker-compose.yml

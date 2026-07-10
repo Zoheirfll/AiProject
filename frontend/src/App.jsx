@@ -18,6 +18,7 @@ import { ProtectedRoute } from './lib/ProtectedRoute'
 import {
   BoltIcon,
   ChatIcon,
+  ExternalLinkIcon,
   EyeIcon,
   GearIcon,
   GridIcon,
@@ -32,6 +33,8 @@ import {
   WorkflowIcon,
 } from './lib/ui'
 import { useTheme } from './lib/useTheme'
+
+const N8N_URL = import.meta.env.VITE_N8N_URL || 'http://localhost:5678'
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
@@ -96,6 +99,15 @@ function Sidebar() {
             {label}
           </NavLink>
         ))}
+        <a
+          href={N8N_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+        >
+          <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+          n8n
+        </a>
       </nav>
 
       <div className="border-t border-slate-100 px-5 py-4 dark:border-slate-700">

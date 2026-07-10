@@ -1,0 +1,115 @@
+{
+  "name": "GRH-Auto — Rapport quotidien nouveautés/sortants",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "cronExpression", "expression": "0 9 * * *" }] }
+      },
+      "id": "trigger-schedule",
+      "name": "Tous les jours à 9h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            { "id": "drh_email", "name": "drh_email", "type": "string", "value": "drh@example.com" }
+          ]
+        }
+      },
+      "id": "set-config",
+      "name": "Configuration (destinataire DRH)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "Change the DRH recipient email here — no code edit needed."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/employes/",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-employes",
+      "name": "GET employés actifs",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, -80],
+      "credentials": { "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" } }
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/contrats-expirants/",
+        "sendQuery": true,
+        "queryParameters": { "parameters": [{ "name": "jours", "value": "45" }] },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-contrats",
+      "name": "GET contrats expirant sous 45j",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 80],
+      "credentials": { "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" } }
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combinationMode": "mergeByPosition",
+        "options": {}
+      },
+      "id": "merge-data",
+      "name": "Fusionner",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const employes = $('GET employés actifs').all().map(i => i.json);\nconst contrats = $('GET contrats expirant sous 45j').all().map(i => i.json);\nconst resume = `Effectif actif: ${employes.length}.\\n\\nContrats expirant sous 45 jours (${contrats.length}):\\n` + contrats.map(c => `- ${c.prenom} ${c.nom} (${c.departement}): expire le ${c.date_fin}`).join('\\n');\nreturn [{ json: { resume } }];"
+      },
+      "id": "code-build-summary",
+      "name": "Construire le résumé",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/mails/envoyer/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ destinataire_email: $('Configuration (destinataire DRH)').first().json.drh_email, destinataire_nom: 'DRH', sujet_demande: 'Rapport quotidien RH', prompt_override: 'Tu es un assistant RH. Rédige un rapport quotidien professionnel en français à partir de ces données:\\n' + $json.resume + '\\nRéponds strictement au format:\\nSUJET: <objet>\\nCORPS:\\n<corps>' }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-send-mail",
+      "name": "POST envoyer rapport",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [1100, 0],
+      "credentials": { "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" } }
+    }
+  ],
+  "connections": {
+    "Tous les jours à 9h": { "main": [[{ "node": "Configuration (destinataire DRH)", "type": "main", "index": 0 }]] },
+    "Configuration (destinataire DRH)": {
+      "main": [[
+        { "node": "GET employés actifs", "type": "main", "index": 0 },
+        { "node": "GET contrats expirant sous 45j", "type": "main", "index": 0 }
+      ]]
+    },
+    "GET employés actifs": { "main": [[{ "node": "Fusionner", "type": "main", "index": 0 }]] },
+    "GET contrats expirant sous 45j": { "main": [[{ "node": "Fusionner", "type": "main", "index": 1 }]] },
+    "Fusionner": { "main": [[{ "node": "Construire le résumé", "type": "main", "index": 0 }]] },
+    "Construire le résumé": { "main": [[{ "node": "POST envoyer rapport", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "grh-auto-template" }
+}

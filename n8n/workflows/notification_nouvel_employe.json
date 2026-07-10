@@ -1,0 +1,93 @@
+{
+  "name": "GRH-Auto — Notification nouvel employé",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "grh-auto/nouvel-employe",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "trigger-webhook",
+      "name": "Webhook: nouvel employé",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [0, 0],
+      "notes": "Call this from anywhere (e.g. Imports page, a script, another workflow) with JSON body: { \"employee_id\": 123 }"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-employee-id",
+              "leftValue": "={{ $json.body.employee_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-has-employee-id",
+      "name": "employee_id fourni ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/mails/envoyer/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ employee_id: $json.body.employee_id, sujet_demande: 'Bienvenue dans l\\'entreprise', format: 'HTML' }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-send-mail",
+      "name": "POST mail de bienvenue",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, -80],
+      "credentials": { "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" } }
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": true, \"mail\": $json } }}"
+      },
+      "id": "respond-ok",
+      "name": "Répondre OK",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [660, -80]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { \"ok\": false, \"error\": \"employee_id manquant\" } }}",
+        "options": { "responseCode": 400 }
+      },
+      "id": "respond-error",
+      "name": "Répondre erreur",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [440, 80]
+    }
+  ],
+  "connections": {
+    "Webhook: nouvel employé": { "main": [[{ "node": "employee_id fourni ?", "type": "main", "index": 0 }]] },
+    "employee_id fourni ?": {
+      "main": [
+        [{ "node": "POST mail de bienvenue", "type": "main", "index": 0 }],
+        [{ "node": "Répondre erreur", "type": "main", "index": 0 }]
+      ]
+    },
+    "POST mail de bienvenue": { "main": [[{ "node": "Répondre OK", "type": "main", "index": 0 }]] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "grh-auto-template" }
+}

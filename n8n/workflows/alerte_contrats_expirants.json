@@ -1,0 +1,110 @@
+{
+  "name": "GRH-Auto — Alerte contrats expirants",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            { "field": "cronExpression", "expression": "0 8 * * *" }
+          ]
+        }
+      },
+      "id": "trigger-schedule",
+      "name": "Tous les jours à 8h",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "jours",
+              "name": "jours",
+              "type": "number",
+              "value": 30
+            }
+          ]
+        }
+      },
+      "id": "set-config",
+      "name": "Configuration (seuil en jours)",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "Change '30' to whatever alert window you want — no code edit needed."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/contrats-expirants/",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            { "name": "jours", "value": "={{ $json.jours }}" }
+          ]
+        },
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-contrats",
+      "name": "GET contrats expirants",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "credentials": {
+        "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": { "caseSensitive": true, "leftValue": "", "typeValidation": "loose" },
+          "conditions": [
+            {
+              "id": "has-contract",
+              "leftValue": "={{ $json.employee_id }}",
+              "rightValue": "",
+              "operator": { "type": "string", "operation": "notEmpty" }
+            }
+          ],
+          "combinator": "and"
+        }
+      },
+      "id": "if-has-results",
+      "name": "Contrat trouvé ?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $env.GRH_AUTO_URL }}/api/n8n/mails/envoyer/",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ employee_id: $json.employee_id, sujet_demande: \"Alerte : votre contrat expire dans \" + $json.jours_restants + \" jours (le \" + $json.date_fin + \")\" }) }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "id": "http-send-mail",
+      "name": "POST envoyer mail",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [880, -80],
+      "credentials": {
+        "httpHeaderAuth": { "id": "grh-auto-token", "name": "GRH-Auto API Token" }
+      }
+    }
+  ],
+  "connections": {
+    "Tous les jours à 8h": { "main": [[{ "node": "Configuration (seuil en jours)", "type": "main", "index": 0 }]] },
+    "Configuration (seuil en jours)": { "main": [[{ "node": "GET contrats expirants", "type": "main", "index": 0 }]] },
+    "GET contrats expirants": { "main": [[{ "node": "Contrat trouvé ?", "type": "main", "index": 0 }]] },
+    "Contrat trouvé ?": { "main": [[{ "node": "POST envoyer mail", "type": "main", "index": 0 }], []] }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "meta": { "instanceId": "grh-auto-template" }
+}
