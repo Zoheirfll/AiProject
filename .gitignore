@@ -1,0 +1,23 @@
+# Env
+.env
+
+# Python
+__pycache__/
+*.pyc
+venv/
+.venv/
+*.sqlite3
+
+# Node
+node_modules/
+dist/
+
+# Docker
+*.log
+
+# n8n
+n8n/.n8n/
+
+# IDE
+.vscode/
+.idea/
