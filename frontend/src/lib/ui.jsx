@@ -308,6 +308,42 @@ export function LogoutIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function ChatIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M3 5.5A1.5 1.5 0 014.5 4h11A1.5 1.5 0 0117 5.5v6A1.5 1.5 0 0115.5 13H9l-4 3v-3H4.5A1.5 1.5 0 013 11.5v-6z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function SparkleIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="currentColor">
+      <path d="M10 2l1.5 4.5L16 8l-4.5 1.5L10 14l-1.5-4.5L4 8l4.5-1.5L10 2z" />
+      <path d="M16 12l.7 2 2 .7-2 .7-.7 2-.7-2-2-.7 2-.7.7-2z" />
+    </svg>
+  )
+}
+
+export function SendIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M3 10l14-7-5 14-2.5-6L3 10z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
+export function WorkflowIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <rect x="2.5" y="3" width="5" height="4" rx="1" />
+      <rect x="12.5" y="3" width="5" height="4" rx="1" />
+      <rect x="7.5" y="13" width="5" height="4" rx="1" />
+      <path d="M5 7v3a2 2 0 002 2h2M15 7v3a2 2 0 01-2 2h-2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function EyeIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

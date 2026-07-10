@@ -1,8 +1,128 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { fetchAutomatisationConfig, saveAutomatisationConfig, testerSmtp } from '../lib/api'
+import {
+  fetchAgentConfig,
+  fetchAutomatisationConfig,
+  fetchModelesDisponibles,
+  saveAgentConfig,
+  saveAutomatisationConfig,
+  testerSmtp,
+} from '../lib/api'
 import { describeApiError } from '../lib/errors'
-import { Button, Card, Field, PageHeader, Spinner, Textarea, Toast } from '../lib/ui'
+import { Button, Card, Field, Input, PageHeader, Select, Spinner, Textarea, Toast } from '../lib/ui'
+
+const AGENTS = [
+  { key: 'analyste', label: 'Agent Analyste' },
+  { key: 'chat', label: 'Assistant Chat' },
+  { key: 'orchestrateur', label: 'Orchestrateur' },
+]
+
+function AgentsConfigCard() {
+  const [form, setForm] = useState({
+    modele_analyste: '',
+    modele_chat: '',
+    modele_orchestrateur: '',
+    timeout_secondes: 60,
+    max_iterations: 5,
+    analyste_destinataires: '',
+  })
+  const [saved, setSaved] = useState(false)
+
+  const configQuery = useQuery({ queryKey: ['agent-config'], queryFn: fetchAgentConfig })
+  const modelesQuery = useQuery({ queryKey: ['modeles-disponibles'], queryFn: fetchModelesDisponibles })
+
+  useEffect(() => {
+    if (configQuery.data) {
+      setForm({
+        ...configQuery.data,
+        analyste_destinataires: (configQuery.data.analyste_destinataires || []).join(', '),
+      })
+    }
+  }, [configQuery.data])
+
+  const saveMutation = useMutation({
+    mutationFn: saveAgentConfig,
+    onSuccess: () => {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 2500)
+    },
+  })
+
+  const handleSave = () => {
+    saveMutation.mutate({
+      ...form,
+      analyste_destinataires: form.analyste_destinataires
+        .split(',')
+        .map((v) => v.trim())
+        .filter(Boolean),
+    })
+  }
+
+  const modeles = modelesQuery.data?.modeles || []
+
+  return (
+    <Card className="space-y-5">
+      <div>
+        <h3 className="font-medium text-slate-900 dark:text-slate-50">Modèles Ollama par agent</h3>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Laissez vide pour utiliser le modèle par défaut de l'application.
+          {modelesQuery.isError && ' (Ollama injoignable — impossible de lister les modèles installés.)'}
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        {AGENTS.map(({ key, label }) => (
+          <Field key={key} label={label}>
+            <Select
+              value={form[`modele_${key}`]}
+              onChange={(e) => setForm((f) => ({ ...f, [`modele_${key}`]: e.target.value }))}
+            >
+              <option value="">Modèle par défaut</option>
+              {modeles.map((m) => (
+                <option key={m} value={m}>{m}</option>
+              ))}
+            </Select>
+          </Field>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <Field label="Timeout (secondes)">
+          <Input
+            type="number"
+            min="1"
+            value={form.timeout_secondes}
+            onChange={(e) => setForm((f) => ({ ...f, timeout_secondes: e.target.value }))}
+          />
+        </Field>
+        <Field label="Nombre max d'itérations">
+          <Input
+            type="number"
+            min="1"
+            value={form.max_iterations}
+            onChange={(e) => setForm((f) => ({ ...f, max_iterations: e.target.value }))}
+          />
+        </Field>
+      </div>
+
+      <Field label="Destinataires des alertes de l'agent Analyste" hint="Emails fixes, 'departement:X', ou 'tous'.">
+        <Input
+          value={form.analyste_destinataires}
+          onChange={(e) => setForm((f) => ({ ...f, analyste_destinataires: e.target.value }))}
+          placeholder="rh@example.com, departement:IT"
+        />
+      </Field>
+
+      <div className="flex items-center gap-3 border-t border-slate-100 pt-4 dark:border-slate-700">
+        <Button onClick={handleSave} disabled={saveMutation.isPending}>
+          {saveMutation.isPending && <Spinner />}
+          Enregistrer
+        </Button>
+        {saved && <span className="text-sm text-emerald-600">Configuration enregistrée.</span>}
+      </div>
+    </Card>
+  )
+}
 
 export default function ConfigurationPage() {
   const [prompt, setPrompt] = useState('')
@@ -75,6 +195,8 @@ export default function ConfigurationPage() {
       {saveMutation.isError && (
         <Toast tone="error" message="Échec de l'enregistrement de la configuration." onDismiss={() => {}} />
       )}
+
+      <AgentsConfigCard />
 
       <Card className="space-y-3">
         <div>

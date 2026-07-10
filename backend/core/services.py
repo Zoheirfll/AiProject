@@ -258,6 +258,14 @@ def scan_dossier_surveille():
             excel_import.erreurs = [{"ligne": 0, "message": str(exc)}]
         excel_import.save()
 
+        if excel_import.status == ExcelImport.Status.SUCCESS:
+            from agents.analyste import analyser_import
+
+            try:
+                analyser_import(excel_import)
+            except Exception:  # noqa: BLE001
+                pass  # best-effort — never let the analyste agent break folder-watch imports
+
         shutil.move(path, os.path.join(processed_dir, name))
 
         from integrations.notifications import notify

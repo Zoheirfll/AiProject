@@ -269,3 +269,68 @@ export async function updateUser(id, payload) {
 export async function deleteUser(id) {
   await api.delete(`/api/users/${id}/`)
 }
+
+export async function fetchAgentAnalyses() {
+  const { data } = await api.get('/api/agents/analyses/')
+  return data
+}
+
+export async function lancerAnalyse() {
+  const { data } = await api.post('/api/agents/analyses/lancer/')
+  return data
+}
+
+export async function fetchAgentConfig() {
+  const { data } = await api.get('/api/agents/config/')
+  return data
+}
+
+export async function saveAgentConfig(payload) {
+  const { data } = await api.put('/api/agents/config/', payload)
+  return data
+}
+
+export async function fetchModelesDisponibles() {
+  const { data } = await api.get('/api/agents/config/modeles-disponibles/')
+  return data
+}
+
+export async function fetchChatSuggestions() {
+  const { data } = await api.get('/api/agents/chat/suggestions/')
+  return data
+}
+
+export async function fetchConversations() {
+  const { data } = await api.get('/api/agents/chat/conversations/')
+  return data
+}
+
+export async function fetchConversationMessages(id) {
+  const { data } = await api.get(`/api/agents/chat/conversations/${id}/messages/`)
+  return data
+}
+
+export async function fetchWorkflowDefinitions() {
+  const { data } = await api.get('/api/agents/workflows/')
+  return data
+}
+
+export async function lancerWorkflow(payload) {
+  const { data } = await api.post('/api/agents/workflows/lancer/', payload)
+  return data
+}
+
+export async function lancerWorkflowPersonnalise(payload) {
+  const { data } = await api.post('/api/agents/workflows/personnalise/', payload)
+  return data
+}
+
+export async function fetchWorkflowExecutions() {
+  const { data } = await api.get('/api/agents/workflows/executions/')
+  return data
+}
+
+export async function reprendreWorkflow(id) {
+  const { data } = await api.post(`/api/agents/workflows/executions/${id}/reprendre/`)
+  return data
+}

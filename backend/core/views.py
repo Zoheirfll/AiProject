@@ -54,6 +54,14 @@ class ImportUploadView(APIView):
             excel_import.erreurs = [{"ligne": 0, "message": str(exc)}]
         excel_import.save()
 
+        if excel_import.status == ExcelImport.Status.SUCCESS:
+            from agents.analyste import analyser_import
+
+            try:
+                analyser_import(excel_import)
+            except Exception:  # noqa: BLE001
+                pass  # the analyste agent is best-effort; never fail the upload because of it
+
         return Response(ExcelImportSerializer(excel_import).data, status=201)
 
 

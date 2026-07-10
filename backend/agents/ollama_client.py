@@ -29,7 +29,7 @@ def _client():
     return ollama.Client(host=settings.OLLAMA_BASE_URL)
 
 
-def generate_mail_content(employee, sujet_demande, prompt_override=None, format="TEXTE"):
+def generate_mail_content(employee, sujet_demande, prompt_override=None, format="TEXTE", model=None):
     """Ask the local Ollama model to draft a subject + body for an HR email.
 
     format: "TEXTE" (default) or "HTML" — selects the default system prompt
@@ -49,7 +49,7 @@ def generate_mail_content(employee, sujet_demande, prompt_override=None, format=
 
     try:
         response = _client().chat(
-            model=settings.OLLAMA_MODEL,
+            model=model or settings.OLLAMA_MODEL,
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": context},
@@ -105,7 +105,7 @@ REGLE_ENVOI_TOUJOURS = (
 )
 
 
-def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
+def analyser_document(prompt_analyse, contenu, forcer_envoi=False, model=None):
     """Ask Ollama to analyze a document's content against a watch instruction.
 
     Returns {"envoyer": bool, "subject": str, "body": str}. Raises
@@ -126,7 +126,7 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
 
     try:
         response = _client().chat(
-            model=settings.OLLAMA_SURVEILLANCE_MODEL,
+            model=model or settings.OLLAMA_SURVEILLANCE_MODEL,
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": contenu_tronque},
@@ -138,6 +138,51 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
 
     content = response.get("message", {}).get("content", "").strip()
     return _parse_analysis_response(content, forcer_envoi)
+
+
+CHAT_SYSTEM_PROMPT = (
+    "Tu es l'assistant RH de GRH-Auto. Réponds en français, de façon concise et "
+    "professionnelle. Utilise les données ci-dessous si elles sont pertinentes pour "
+    "la question ; si elles ne suffisent pas pour répondre, dis-le clairement au lieu "
+    "d'inventer une réponse.\n\nDonnées disponibles:\n{contexte}"
+)
+
+
+def stream_chat(historique, contexte=None, model=None, num_predict=400):
+    """Yield response tokens from Ollama for a chat turn (US-E6-02 streaming).
+
+    historique: list of {"role": "user"|"assistant", "content": str}, oldest
+    first — the running conversation, ending with the latest user message.
+    contexte: optional dict of tool-call results injected into the system
+    prompt so the model can ground its answer in real data (US-E6-02
+    "outils"/transparency — the caller reports which tools were used
+    separately; this just gives the model their output as context).
+
+    Yields str chunks. Raises OllamaGenerationError if Ollama is unreachable
+    (raised before any chunk is yielded, or mid-stream on a transport error).
+    """
+    import json as _json
+
+    system_prompt = CHAT_SYSTEM_PROMPT.format(
+        contexte=_json.dumps(contexte, ensure_ascii=False, default=str) if contexte else "(aucune)"
+    )
+    messages = [{"role": "system", "content": system_prompt}, *historique]
+
+    try:
+        stream = _client().chat(
+            model=model or settings.OLLAMA_MODEL,
+            messages=messages,
+            stream=True,
+            options={"num_predict": num_predict},
+        )
+        for chunk in stream:
+            token = chunk.get("message", {}).get("content", "")
+            if token:
+                yield token
+    except OllamaGenerationError:
+        raise
+    except Exception as exc:  # noqa: BLE001
+        raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc
 
 
 def _parse_analysis_response(content, forcer_envoi):

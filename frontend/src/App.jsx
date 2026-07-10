@@ -1,17 +1,23 @@
 import { NavLink, Route, Routes } from 'react-router-dom'
+import AgentAnalystePage from './pages/AgentAnalystePage'
+import AgentChatPage from './pages/AgentChatPage'
 import AutomatisationsPage from './pages/AutomatisationsPage'
+import ChatHistoriquePage from './pages/ChatHistoriquePage'
 import ConfigurationPage from './pages/ConfigurationPage'
 import DashboardPage from './pages/DashboardPage'
 import ImportsPage from './pages/ImportsPage'
 import LoginPage from './pages/LoginPage'
 import MailApercuPage from './pages/MailApercuPage'
 import MailsHistoriquePage from './pages/MailsHistoriquePage'
+import OrchestrateurPage from './pages/OrchestrateurPage'
 import SurveillancePage from './pages/SurveillancePage'
 import UtilisateursPage from './pages/UtilisateursPage'
 import { useAuth } from './lib/AuthContext'
+import { FloatingChatWidget } from './lib/FloatingChatWidget'
 import { ProtectedRoute } from './lib/ProtectedRoute'
 import {
   BoltIcon,
+  ChatIcon,
   EyeIcon,
   GearIcon,
   GridIcon,
@@ -19,9 +25,11 @@ import {
   LogoutIcon,
   MailIcon,
   MoonIcon,
+  SparkleIcon,
   SunIcon,
   UploadIcon,
   UsersIcon,
+  WorkflowIcon,
 } from './lib/ui'
 import { useTheme } from './lib/useTheme'
 
@@ -32,6 +40,9 @@ const NAV_ITEMS = [
   { to: '/surveillance', label: 'Surveillance', icon: EyeIcon },
   { to: '/mails/apercu', label: 'Aperçu mail', icon: MailIcon },
   { to: '/mails/historique', label: 'Historique mails', icon: HistoryIcon },
+  { to: '/agents/analyste', label: 'Agent Analyste', icon: SparkleIcon },
+  { to: '/agents/chat', label: 'Assistant Chat', icon: ChatIcon },
+  { to: '/agents/orchestrateur', label: 'Orchestrateur', icon: WorkflowIcon, drhOnly: true },
   { to: '/utilisateurs', label: 'Utilisateurs', icon: UsersIcon, drhOnly: true },
   { to: '/configuration', label: 'Configuration', icon: GearIcon, drhOnly: true },
 ]
@@ -122,6 +133,18 @@ function AppShell() {
           <Route path="/surveillance" element={<SurveillancePage />} />
           <Route path="/mails/apercu" element={<MailApercuPage />} />
           <Route path="/mails/historique" element={<MailsHistoriquePage />} />
+          <Route path="/agents/analyste" element={<AgentAnalystePage />} />
+          <Route path="/agents/chat" element={<AgentChatPage />} />
+          <Route path="/agents/chat/historique" element={<ChatHistoriquePage />} />
+          <Route path="/agents/chat/:conversationId" element={<AgentChatPage />} />
+          <Route
+            path="/agents/orchestrateur"
+            element={
+              <ProtectedRoute drhOnly>
+                <OrchestrateurPage />
+              </ProtectedRoute>
+            }
+          />
           <Route
             path="/configuration"
             element={
@@ -140,6 +163,7 @@ function AppShell() {
           />
         </Routes>
       </main>
+      <FloatingChatWidget />
     </div>
   )
 }
