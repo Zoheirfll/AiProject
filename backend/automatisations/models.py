@@ -4,6 +4,10 @@ from employees.models import Contract
 
 
 class RegleAutomatisation(models.Model):
+    class Format(models.TextChoices):
+        TEXTE = "TEXTE", "Texte brut"
+        HTML = "HTML", "HTML"
+
     nom = models.CharField(max_length=255)
     actif = models.BooleanField(default=True)
     delais_jours = models.JSONField(default=list, blank=True)
@@ -12,6 +16,7 @@ class RegleAutomatisation(models.Model):
     cc = models.JSONField(default=list, blank=True)
     bcc = models.JSONField(default=list, blank=True)
     prompt_override = models.TextField(blank=True)
+    format = models.CharField(max_length=10, choices=Format.choices, default=Format.TEXTE)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

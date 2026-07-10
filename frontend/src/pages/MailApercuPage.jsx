@@ -34,10 +34,12 @@ function SingleMailFlow({ mode, employeesQuery }) {
   const [destinataireNom, setDestinataireNom] = useState('')
   const [destinataireEmail, setDestinataireEmail] = useState('')
   const [sujetDemande, setSujetDemande] = useState('')
+  const [format, setFormat] = useState('TEXTE')
   const [editedSubject, setEditedSubject] = useState('')
   const [editedBody, setEditedBody] = useState('')
 
   const apercuMutation = useMutation({ mutationFn: generateMailApercu })
+  const envoyerMutation = useMutation({ mutationFn: envoyerMail })
   const result = apercuMutation.data
 
   useEffect(() => {
@@ -47,8 +49,6 @@ function SingleMailFlow({ mode, employeesQuery }) {
     }
   }, [result])
 
-  const envoyerMutation = useMutation({ mutationFn: envoyerMail })
-
   const isValid = sujetDemande && (mode === 'employee' ? employeeId : destinataireEmail)
 
   const buildPayload = () => ({
@@ -56,6 +56,7 @@ function SingleMailFlow({ mode, employeesQuery }) {
     destinataireNom: mode === 'adhoc' ? destinataireNom : undefined,
     destinataireEmail: mode === 'adhoc' ? destinataireEmail : undefined,
     sujetDemande,
+    format,
   })
 
   const handleSubmit = (e) => {
@@ -67,7 +68,14 @@ function SingleMailFlow({ mode, employeesQuery }) {
 
   const handleEnvoyer = () => {
     if (!result?.id) return
-    envoyerMutation.mutate({ mailLogId: result.id, subject: editedSubject, body: editedBody })
+    envoyerMutation.mutate({ mailLogId: result.id, subject: editedSubject, body: editedBody, format })
+  }
+
+  const handleAnnuler = () => {
+    apercuMutation.reset()
+    envoyerMutation.reset()
+    setEditedSubject('')
+    setEditedBody('')
   }
 
   return (
@@ -106,13 +114,21 @@ function SingleMailFlow({ mode, employeesQuery }) {
             </div>
           )}
 
-          <Field label="Sujet demandé">
-            <Input
-              placeholder="Ex: rappel de renouvellement de contrat"
-              value={sujetDemande}
-              onChange={(e) => setSujetDemande(e.target.value)}
-            />
-          </Field>
+          <div className="grid grid-cols-2 gap-4">
+            <Field label="Sujet demandé">
+              <Input
+                placeholder="Ex: rappel de renouvellement de contrat"
+                value={sujetDemande}
+                onChange={(e) => setSujetDemande(e.target.value)}
+              />
+            </Field>
+            <Field label="Format">
+              <Select value={format} onChange={(e) => setFormat(e.target.value)}>
+                <option value="TEXTE">Texte brut</option>
+                <option value="HTML">HTML riche</option>
+              </Select>
+            </Field>
+          </div>
 
           <Button type="submit" disabled={apercuMutation.isPending || !isValid}>
             {apercuMutation.isPending && <Spinner />}
@@ -133,9 +149,19 @@ function SingleMailFlow({ mode, employeesQuery }) {
           <Field label="Objet">
             <Input value={editedSubject} onChange={(e) => setEditedSubject(e.target.value)} />
           </Field>
-          <Field label="Corps">
+          <Field label={format === 'HTML' ? 'Corps (source HTML)' : 'Corps'}>
             <Textarea className="min-h-50" value={editedBody} onChange={(e) => setEditedBody(e.target.value)} />
           </Field>
+
+          {format === 'HTML' && (
+            <Field label="Aperçu HTML rendu">
+              <div
+                className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                dangerouslySetInnerHTML={{ __html: editedBody }}
+              />
+            </Field>
+          )}
+
           <div className="flex gap-2 border-t border-slate-100 pt-4 dark:border-slate-700">
             <Button
               type="button"
@@ -144,6 +170,9 @@ function SingleMailFlow({ mode, employeesQuery }) {
               disabled={apercuMutation.isPending}
             >
               {apercuMutation.isPending && <Spinner className="h-3.5 w-3.5" />} Régénérer via Ollama
+            </Button>
+            <Button type="button" variant="ghost" onClick={handleAnnuler} disabled={envoyerMutation.isPending}>
+              Annuler
             </Button>
             <Button type="button" onClick={handleEnvoyer} disabled={envoyerMutation.isPending}>
               {envoyerMutation.isPending && <Spinner />} {envoyerMutation.isPending ? 'Envoi…' : 'Envoyer'}

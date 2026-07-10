@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { fetchAutomatisationConfig, saveAutomatisationConfig } from '../lib/api'
+import { fetchAutomatisationConfig, saveAutomatisationConfig, testerSmtp } from '../lib/api'
 import { Button, Card, Field, PageHeader, Spinner, Textarea, Toast } from '../lib/ui'
 
 export default function ConfigurationPage() {
@@ -9,6 +9,7 @@ export default function ConfigurationPage() {
   const [saved, setSaved] = useState(false)
 
   const configQuery = useQuery({ queryKey: ['automatisations-config'], queryFn: fetchAutomatisationConfig })
+  const smtpTestMutation = useMutation({ mutationFn: testerSmtp })
 
   useEffect(() => {
     if (configQuery.data) {
@@ -73,6 +74,29 @@ export default function ConfigurationPage() {
       {saveMutation.isError && (
         <Toast tone="error" message="Échec de l'enregistrement de la configuration." onDismiss={() => {}} />
       )}
+
+      <Card className="space-y-3">
+        <div>
+          <h3 className="font-medium text-slate-900 dark:text-slate-50">Connexion SMTP</h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Vérifie que les identifiants SMTP dans <code className="rounded bg-slate-100 px-1 dark:bg-slate-700">.env</code> fonctionnent, sans envoyer de mail.
+          </p>
+        </div>
+        <Button variant="secondary" onClick={() => smtpTestMutation.mutate()} disabled={smtpTestMutation.isPending}>
+          {smtpTestMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
+          Tester la connexion SMTP
+        </Button>
+        {smtpTestMutation.isSuccess && (
+          <Toast tone="success" message="Connexion SMTP OK." onDismiss={() => smtpTestMutation.reset()} />
+        )}
+        {smtpTestMutation.isError && (
+          <Toast
+            tone="error"
+            message={smtpTestMutation.error?.response?.data?.detail || 'Échec du test SMTP.'}
+            onDismiss={() => smtpTestMutation.reset()}
+          />
+        )}
+      </Card>
     </div>
   )
 }

@@ -1,11 +1,42 @@
 import datetime
 import os
+import re
 import shutil
 
 import openpyxl
 from django.core.files import File
+from django.core.mail import EmailMessage, EmailMultiAlternatives
 
 from employees.models import Employee
+
+
+def _strip_html(html):
+    return re.sub(r"<[^>]+>", " ", html).strip()
+
+
+def send_mail_log(mail_log, destinataires, cc=None, bcc=None):
+    """Send a MailLog's subject/body, respecting its format (US-E4-02):
+    TEXTE sends a plain-text message; HTML sends a real HTML email with a
+    plain-text fallback (for clients that don't render HTML).
+    """
+    if mail_log.format == "HTML":
+        message = EmailMultiAlternatives(
+            subject=mail_log.subject,
+            body=_strip_html(mail_log.body),
+            to=destinataires,
+            cc=cc or None,
+            bcc=bcc or None,
+        )
+        message.attach_alternative(mail_log.body, "text/html")
+        message.send(fail_silently=False)
+    else:
+        EmailMessage(
+            subject=mail_log.subject,
+            body=mail_log.body,
+            to=destinataires,
+            cc=cc or None,
+            bcc=bcc or None,
+        ).send(fail_silently=False)
 
 REQUIRED_COLUMNS = ["matricule", "nom", "prenom"]
 COLUMN_MAP = {

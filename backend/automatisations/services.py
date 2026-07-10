@@ -5,6 +5,7 @@ from django.utils import timezone
 
 from agents.ollama_client import OllamaGenerationError, analyser_document, generate_mail_content
 from core.models import ExcelImport, MailLog
+from core.services import send_mail_log
 from employees.models import Contract, Employee
 
 from .models import (
@@ -78,12 +79,13 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_e
 
     mail_log = MailLog.objects.create(
         employee=employee, regle=regle, sujet_demande=sujet_demande, cc=cc, bcc=bcc,
+        format=regle.format,
     )
 
     prompt_final = _rendre_prompt(regle, employee, contract, jours_restants)
 
     try:
-        result = generate_mail_content(employee, sujet_demande, prompt_final)
+        result = generate_mail_content(employee, sujet_demande, prompt_final, format=regle.format)
     except OllamaGenerationError as exc:
         mail_log.status = MailLog.Status.FAILED
         mail_log.erreur = str(exc)
@@ -100,10 +102,7 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_e
         return mail_log
 
     try:
-        EmailMessage(
-            subject=mail_log.subject, body=mail_log.body,
-            to=destinataires, cc=cc or None, bcc=bcc or None,
-        ).send(fail_silently=False)
+        send_mail_log(mail_log, destinataires, cc=cc, bcc=bcc)
     except Exception as exc:  # noqa: BLE001
         mail_log.status = MailLog.Status.FAILED
         mail_log.erreur = str(exc)

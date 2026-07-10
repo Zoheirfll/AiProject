@@ -29,6 +29,19 @@ Services :
 | n8n      | http://localhost:5678 |
 | Ollama   | http://localhost:11434 |
 
+## Configuration SMTP (Gmail)
+
+L'envoi de mails utilise Gmail SMTP. Les identifiants viennent uniquement du fichier `.env` (jamais commités, jamais codés en dur) :
+
+```bash
+EMAIL_HOST_USER=votre-compte@gmail.com
+EMAIL_HOST_PASSWORD=xxxxxxxxxxxxxxxx   # mot de passe d'application, PAS le mot de passe du compte
+```
+
+Si la double authentification (2FA) est activée sur le compte Gmail (recommandé), Google refuse le mot de passe du compte pour SMTP : il faut générer un **mot de passe d'application** dédié sur https://myaccount.google.com/apppasswords et l'utiliser comme `EMAIL_HOST_PASSWORD`. Une authentification refusée (`535 Username and Password not accepted`) signifie presque toujours que ce champ contient le mauvais type de mot de passe.
+
+La connexion SMTP peut être testée sans envoyer de mail depuis la page `/configuration` de l'application ("Tester la connexion SMTP").
+
 ## Structure
 
 ```

@@ -1,7 +1,7 @@
 from types import SimpleNamespace
 
 from django.conf import settings
-from django.core.mail import EmailMessage, get_connection
+from django.core.mail import get_connection
 from django.utils import timezone
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
@@ -13,7 +13,7 @@ from employees.models import Employee
 
 from .models import IMPORT_MAPPING_FIELDS, ExcelImport, ImportConfig, MailLog
 from .serializers import ExcelImportSerializer, MailLogSerializer
-from .services import parse_employee_excel, parse_mail_masse_excel
+from .services import parse_employee_excel, parse_mail_masse_excel, send_mail_log
 
 
 class HealthView(APIView):
@@ -108,7 +108,8 @@ class ImportMappingView(APIView):
 
 
 def _generer_brouillon(
-    sujet_demande, prompt_override=None, employee=None, destinataire_nom="", destinataire_email=""
+    sujet_demande, prompt_override=None, employee=None, destinataire_nom="", destinataire_email="",
+    format="TEXTE",
 ):
     """Create a MailLog and fill it via Ollama. Shared by single and bulk drafting."""
     if employee is not None:
@@ -126,10 +127,11 @@ def _generer_brouillon(
         destinataire_nom=destinataire_nom,
         destinataire_email=destinataire_email,
         sujet_demande=sujet_demande,
+        format=format,
     )
 
     try:
-        result = generate_mail_content(contact, sujet_demande, prompt_override)
+        result = generate_mail_content(contact, sujet_demande, prompt_override, format=format)
         mail_log.subject = result["subject"]
         mail_log.body = result["body"]
         mail_log.status = MailLog.Status.DRAFT
@@ -148,6 +150,9 @@ class MailApercuView(APIView):
         destinataire_email = (request.data.get("destinataire_email") or "").strip()
         sujet_demande = request.data.get("sujet_demande")
         prompt_override = request.data.get("prompt_override")
+        format = (request.data.get("format") or "TEXTE").upper()
+        if format not in ("TEXTE", "HTML"):
+            format = "TEXTE"
 
         if not sujet_demande:
             return Response({"detail": "sujet_demande est requis."}, status=400)
@@ -170,6 +175,7 @@ class MailApercuView(APIView):
             employee=employee,
             destinataire_nom=destinataire_nom,
             destinataire_email=destinataire_email,
+            format=format,
         )
 
         return Response(MailLogSerializer(mail_log).data, status=201)
@@ -187,6 +193,9 @@ class MailApercuMasseView(APIView):
 
         sujet_defaut = (request.data.get("sujet_demande") or "").strip()
         prompt_override = request.data.get("prompt_override")
+        format = (request.data.get("format") or "TEXTE").upper()
+        if format not in ("TEXTE", "HTML"):
+            format = "TEXTE"
 
         try:
             rows, parse_errors = parse_mail_masse_excel(uploaded_file)
@@ -213,6 +222,7 @@ class MailApercuMasseView(APIView):
                     prompt_override,
                     destinataire_nom=row["nom"],
                     destinataire_email=row["email"],
+                    format=format,
                 )
             drafts.append(mail_log)
 
@@ -225,11 +235,13 @@ class MailApercuMasseView(APIView):
         )
 
 
-def _envoyer_mail_log(mail_log, subject=None, body=None):
+def _envoyer_mail_log(mail_log, subject=None, body=None, format=None):
     if subject:
         mail_log.subject = subject
     if body:
         mail_log.body = body
+    if format in ("TEXTE", "HTML"):
+        mail_log.format = format
 
     destinataire = mail_log.email_destinataire
     if not destinataire:
@@ -239,13 +251,7 @@ def _envoyer_mail_log(mail_log, subject=None, body=None):
         return mail_log
 
     try:
-        EmailMessage(
-            subject=mail_log.subject,
-            body=mail_log.body,
-            to=[destinataire],
-            cc=mail_log.cc or None,
-            bcc=mail_log.bcc or None,
-        ).send(fail_silently=False)
+        send_mail_log(mail_log, [destinataire], cc=mail_log.cc, bcc=mail_log.bcc)
         mail_log.status = MailLog.Status.SENT
         mail_log.sent_at = timezone.now()
     except Exception as exc:  # noqa: BLE001
@@ -261,6 +267,7 @@ class MailEnvoyerView(APIView):
         mail_log_id = request.data.get("mail_log_id")
         subject = request.data.get("subject")
         body = request.data.get("body")
+        format = request.data.get("format")
 
         if not mail_log_id:
             return Response({"detail": "mail_log_id est requis."}, status=400)
@@ -273,7 +280,7 @@ class MailEnvoyerView(APIView):
         if not mail_log.email_destinataire:
             return Response({"detail": "Aucune adresse email de destinataire."}, status=400)
 
-        mail_log = _envoyer_mail_log(mail_log, subject, body)
+        mail_log = _envoyer_mail_log(mail_log, subject, body, format)
 
         return Response(MailLogSerializer(mail_log).data, status=200)
 
@@ -319,10 +326,26 @@ class MailHistoriqueView(ListAPIView):
 
 class SmtpTestView(APIView):
     def post(self, request):
+        import smtplib
+
         connection = get_connection(fail_silently=False)
         try:
             connection.open()
             connection.close()
+        except smtplib.SMTPAuthenticationError as exc:
+            return Response(
+                {
+                    "status": "erreur",
+                    "detail": (
+                        "Authentification SMTP refusée. Si EMAIL_HOST_USER utilise un compte Gmail "
+                        "avec la double authentification (2FA) activée, EMAIL_HOST_PASSWORD doit être "
+                        "un mot de passe d'application généré sur "
+                        "https://myaccount.google.com/apppasswords, pas le mot de passe du compte."
+                    ),
+                    "erreur_brute": str(exc),
+                },
+                status=400,
+            )
         except Exception as exc:  # noqa: BLE001
             return Response({"status": "erreur", "detail": str(exc)}, status=400)
 

@@ -42,6 +42,7 @@ class RegleAutomatisationSerializer(serializers.ModelSerializer):
             "cc",
             "bcc",
             "prompt_override",
+            "format",
             "created_at",
             "updated_at",
         ]

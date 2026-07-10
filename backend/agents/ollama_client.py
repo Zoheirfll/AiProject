@@ -8,6 +8,16 @@ DEFAULT_MAIL_PROMPT = (
     "CORPS:\n<corps du mail>"
 )
 
+DEFAULT_MAIL_PROMPT_HTML = (
+    "Tu es un assistant RH. Rédige un email professionnel en français pour "
+    "l'employé suivant, sur le sujet indiqué. Le corps doit être du HTML simple "
+    "et bien mis en forme (balises <p>, <h2>, <strong>, quelques couleurs sobres "
+    "en style inline), prêt à être envoyé tel quel comme corps HTML d'un email. "
+    "Réponds strictement au format:\n"
+    "SUJET: <objet du mail>\n"
+    "CORPS:\n<corps du mail en HTML>"
+)
+
 
 class OllamaGenerationError(Exception):
     pass
@@ -17,13 +27,18 @@ def _client():
     return ollama.Client(host=settings.OLLAMA_BASE_URL)
 
 
-def generate_mail_content(employee, sujet_demande, prompt_override=None):
+def generate_mail_content(employee, sujet_demande, prompt_override=None, format="TEXTE"):
     """Ask the local Ollama model to draft a subject + body for an HR email.
+
+    format: "TEXTE" (default) or "HTML" — selects the default system prompt
+    (ignored if prompt_override is given, which is assumed to already match
+    the desired format — US-E4-02 template selection).
 
     Returns {"subject": str, "body": str}. Raises OllamaGenerationError on
     failure (model missing, Ollama unreachable, unparsable response).
     """
-    prompt = prompt_override or DEFAULT_MAIL_PROMPT
+    default_prompt = DEFAULT_MAIL_PROMPT_HTML if format == "HTML" else DEFAULT_MAIL_PROMPT
+    prompt = prompt_override or default_prompt
     context = (
         f"Employé: {employee.prenom} {employee.nom} ({employee.poste or 'N/A'}, "
         f"{employee.departement or 'N/A'})\n"
@@ -87,9 +102,10 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
     True regardless of what the model decided (used for periodic digests).
     """
     system_prompt = DOCUMENT_ANALYSIS_PROMPT_TEMPLATE.format(consigne=prompt_analyse)
-    # Ollama has a finite context window — truncate very large documents
-    # rather than fail outright.
-    contenu_tronque = contenu[:12000]
+    # Local CPU inference is slow on modest hardware — keep the input small
+    # and cap the output length so a single analysis finishes in a
+    # reasonable time instead of running for several minutes.
+    contenu_tronque = contenu[:2000]
 
     try:
         response = _client().chat(
@@ -98,6 +114,7 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": contenu_tronque},
             ],
+            options={"num_predict": 150},
         )
     except Exception as exc:  # noqa: BLE001
         raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc

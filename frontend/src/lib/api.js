@@ -49,6 +49,7 @@ export async function generateMailApercu({
   destinataireEmail,
   sujetDemande,
   promptOverride,
+  format,
 }) {
   const { data } = await api.post('/api/mails/apercu/', {
     employee_id: employeeId || undefined,
@@ -56,24 +57,27 @@ export async function generateMailApercu({
     destinataire_email: destinataireEmail || undefined,
     sujet_demande: sujetDemande,
     prompt_override: promptOverride || undefined,
+    format: format || undefined,
   })
   return data
 }
 
-export async function envoyerMail({ mailLogId, subject, body }) {
+export async function envoyerMail({ mailLogId, subject, body, format }) {
   const { data } = await api.post('/api/mails/envoyer/', {
     mail_log_id: mailLogId,
     subject,
     body,
+    format,
   })
   return data
 }
 
-export async function generateMailApercuMasse({ file, sujetDemande, promptOverride }) {
+export async function generateMailApercuMasse({ file, sujetDemande, promptOverride, format }) {
   const formData = new FormData()
   formData.append('fichier', file)
   if (sujetDemande) formData.append('sujet_demande', sujetDemande)
   if (promptOverride) formData.append('prompt_override', promptOverride)
+  if (format) formData.append('format', format)
   const { data } = await api.post('/api/mails/apercu-masse/', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   })

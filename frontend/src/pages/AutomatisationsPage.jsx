@@ -23,6 +23,7 @@ import {
   Modal,
   PageHeader,
   PlusIcon,
+  Select,
   Spinner,
   Textarea,
   Toast,
@@ -38,6 +39,7 @@ const emptyForm = {
   cc: '',
   bcc: '',
   prompt_override: '',
+  format: 'TEXTE',
 }
 
 function toList(value) {
@@ -58,6 +60,7 @@ function RuleFormModal({ open, onClose, onSubmit, isPending }) {
       cc: toList(form.cc),
       bcc: toList(form.bcc),
       prompt_override: form.prompt_override,
+      format: form.format,
     })
     setForm(emptyForm)
   }
@@ -114,6 +117,13 @@ function RuleFormModal({ open, onClose, onSubmit, isPending }) {
             value={form.prompt_override}
             onChange={(e) => setForm({ ...form, prompt_override: e.target.value })}
           />
+        </Field>
+
+        <Field label="Format du mail" hint="HTML génère un email mis en forme (couleurs, titres) au lieu de texte brut.">
+          <Select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })}>
+            <option value="TEXTE">Texte brut</option>
+            <option value="HTML">HTML riche</option>
+          </Select>
         </Field>
 
         <Checkbox
