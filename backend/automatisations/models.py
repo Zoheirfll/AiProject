@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.db import models
 
 from employees.models import Contract
@@ -17,6 +18,11 @@ class RegleAutomatisation(models.Model):
     bcc = models.JSONField(default=list, blank=True)
     prompt_override = models.TextField(blank=True)
     format = models.CharField(max_length=10, choices=Format.choices, default=Format.TEXTE)
+    # Owner (US: a Chargé RH recrutement's daily reminder shouldn't be visible
+    # to a Chargé RH paie — DRH sees everything regardless of owner).
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="regles_creees",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -84,6 +90,9 @@ class TacheSurveillance(models.Model):
     )
     cc = models.JSONField(default=list, blank=True)
     bcc = models.JSONField(default=list, blank=True)
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="taches_creees",
+    )
     derniere_execution = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

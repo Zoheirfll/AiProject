@@ -269,6 +269,7 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
           </p>
           <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
             Destinataires: {regle.destinataires?.join(', ') || 'aucun'}
+            {isDrh && regle.cree_par_username && <> · Créée par: {regle.cree_par_username}</>}
           </p>
         </div>
       </div>

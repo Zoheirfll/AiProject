@@ -1,3 +1,4 @@
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView
@@ -21,6 +22,23 @@ from .serializers import (
 from .services import _envoyer_alerte, _executer_tache, apercu_regle, evaluer_regles
 
 
+def _regle_visible_qs(user):
+    """A Chargé RH only sees rules they created (a recruitment reminder
+    shouldn't be visible to a payroll colleague); ownerless legacy rows
+    stay visible to everyone; DRH sees everything."""
+    qs = RegleAutomatisation.objects.all()
+    if user.is_drh:
+        return qs
+    return qs.filter(Q(cree_par=user) | Q(cree_par__isnull=True))
+
+
+def _tache_visible_qs(user):
+    qs = TacheSurveillance.objects.all()
+    if user.is_drh:
+        return qs
+    return qs.filter(Q(cree_par=user) | Q(cree_par__isnull=True))
+
+
 class HealthView(APIView):
     permission_classes = [AllowAny]
 
@@ -29,13 +47,20 @@ class HealthView(APIView):
 
 
 class RegleListCreateView(ListCreateAPIView):
-    queryset = RegleAutomatisation.objects.all()
     serializer_class = RegleAutomatisationSerializer
+
+    def get_queryset(self):
+        return _regle_visible_qs(self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
 
 
 class RegleDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = RegleAutomatisation.objects.all()
     serializer_class = RegleAutomatisationSerializer
+
+    def get_queryset(self):
+        return _regle_visible_qs(self.request.user)
 
     def get_permissions(self):
         if self.request.method == "DELETE":
@@ -45,14 +70,14 @@ class RegleDetailView(RetrieveUpdateDestroyAPIView):
 
 class RegleRunView(APIView):
     def post(self, request, pk):
-        get_object_or_404(RegleAutomatisation, pk=pk)
+        get_object_or_404(_regle_visible_qs(request.user), pk=pk)
         resultats = evaluer_regles(regle_id=pk)
         return Response(MailLogSerializer(resultats, many=True).data, status=200)
 
 
 class RegleTestView(APIView):
     def post(self, request, pk):
-        regle = get_object_or_404(RegleAutomatisation, pk=pk)
+        regle = get_object_or_404(_regle_visible_qs(request.user), pk=pk)
         test_email = (request.data.get("test_email") or "").strip()
         contract = (
             Contract.objects.filter(date_fin__isnull=False)
@@ -74,7 +99,7 @@ class RegleApercuView(APIView):
     rendered prompt for the first match — without sending anything."""
 
     def get(self, request, pk):
-        regle = get_object_or_404(RegleAutomatisation, pk=pk)
+        regle = get_object_or_404(_regle_visible_qs(request.user), pk=pk)
         return Response(apercu_regle(regle))
 
 
@@ -84,9 +109,8 @@ class RegleHistoriqueView(ListAPIView):
     serializer_class = AlerteEnvoyeeSerializer
 
     def get_queryset(self):
-        return AlerteEnvoyee.objects.filter(regle_id=self.kwargs["pk"]).select_related(
-            "contract__employee"
-        )
+        regle = get_object_or_404(_regle_visible_qs(self.request.user), pk=self.kwargs["pk"])
+        return AlerteEnvoyee.objects.filter(regle=regle).select_related("contract__employee")
 
 
 class AutomatisationConfigView(APIView):
@@ -106,15 +130,22 @@ class AutomatisationConfigView(APIView):
 
 
 class TacheSurveillanceListCreateView(ListCreateAPIView):
-    queryset = TacheSurveillance.objects.all()
     serializer_class = TacheSurveillanceSerializer
     parser_classes = [MultiPartParser]
+
+    def get_queryset(self):
+        return _tache_visible_qs(self.request.user)
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
 
 
 class TacheSurveillanceDetailView(RetrieveUpdateDestroyAPIView):
-    queryset = TacheSurveillance.objects.all()
     serializer_class = TacheSurveillanceSerializer
     parser_classes = [MultiPartParser]
+
+    def get_queryset(self):
+        return _tache_visible_qs(self.request.user)
 
     def get_permissions(self):
         if self.request.method == "DELETE":
@@ -126,7 +157,7 @@ class TacheSurveillanceRunView(APIView):
     """Execute a task right now, ignoring its schedule, and record it."""
 
     def post(self, request, pk):
-        tache = get_object_or_404(TacheSurveillance, pk=pk)
+        tache = get_object_or_404(_tache_visible_qs(request.user), pk=pk)
         execution = _executer_tache(tache, marquer_execution=True)
         return Response(ExecutionSurveillanceSerializer(execution).data, status=200)
 
@@ -135,7 +166,7 @@ class TacheSurveillanceTestView(APIView):
     """Execute a task right now without affecting its schedule."""
 
     def post(self, request, pk):
-        tache = get_object_or_404(TacheSurveillance, pk=pk)
+        tache = get_object_or_404(_tache_visible_qs(request.user), pk=pk)
         execution = _executer_tache(tache, marquer_execution=False)
         return Response(ExecutionSurveillanceSerializer(execution).data, status=200)
 
@@ -144,7 +175,7 @@ class TacheSurveillanceHistoriqueView(ListAPIView):
     serializer_class = ExecutionSurveillanceSerializer
 
     def get_queryset(self):
-        qs = ExecutionSurveillance.objects.all()
+        qs = ExecutionSurveillance.objects.filter(tache__in=_tache_visible_qs(self.request.user))
         tache_id = self.request.query_params.get("tache")
         if tache_id:
             qs = qs.filter(tache_id=tache_id)

@@ -213,6 +213,7 @@ function TacheCard({ tache, onRun, onTest, onDelete, onVoirHistorique, isRunning
           </p>
           <p className="mt-1 text-sm text-slate-400">
             Destinataires: {tache.destinataires?.join(', ') || 'aucun'}
+            {isDrh && tache.cree_par_username && <> · Créée par: {tache.cree_par_username}</>}
           </p>
           <p className="mt-1 text-xs text-slate-400">
             Dernière exécution: {tache.derniere_execution ? new Date(tache.derniere_execution).toLocaleString('fr-FR') : 'jamais'}

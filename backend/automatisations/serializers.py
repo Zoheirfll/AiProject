@@ -30,6 +30,8 @@ class AlerteEnvoyeeSerializer(serializers.ModelSerializer):
 
 
 class RegleAutomatisationSerializer(serializers.ModelSerializer):
+    cree_par_username = serializers.CharField(source="cree_par.username", read_only=True, default=None)
+
     class Meta:
         model = RegleAutomatisation
         fields = [
@@ -43,13 +45,17 @@ class RegleAutomatisationSerializer(serializers.ModelSerializer):
             "bcc",
             "prompt_override",
             "format",
+            "cree_par",
+            "cree_par_username",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["created_at", "updated_at"]
+        read_only_fields = ["cree_par", "created_at", "updated_at"]
 
 
 class TacheSurveillanceSerializer(serializers.ModelSerializer):
+    cree_par_username = serializers.CharField(source="cree_par.username", read_only=True, default=None)
+
     class Meta:
         model = TacheSurveillance
         fields = [
@@ -64,11 +70,13 @@ class TacheSurveillanceSerializer(serializers.ModelSerializer):
             "destinataires",
             "cc",
             "bcc",
+            "cree_par",
+            "cree_par_username",
             "derniere_execution",
             "created_at",
             "updated_at",
         ]
-        read_only_fields = ["derniere_execution", "created_at", "updated_at"]
+        read_only_fields = ["cree_par", "derniere_execution", "created_at", "updated_at"]
 
 
 class ExecutionSurveillanceSerializer(serializers.ModelSerializer):
