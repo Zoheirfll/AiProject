@@ -6,8 +6,9 @@ import AutomatisationsPage from './pages/AutomatisationsPage'
 import ImportsPage from './pages/ImportsPage'
 import MailApercuPage from './pages/MailApercuPage'
 import MailsHistoriquePage from './pages/MailsHistoriquePage'
+import SurveillancePage from './pages/SurveillancePage'
 import { fetchEmployees } from './lib/api'
-import { BoltIcon, Card, GridIcon, HistoryIcon, MailIcon, MoonIcon, Spinner, SunIcon, UploadIcon } from './lib/ui'
+import { BoltIcon, Card, EyeIcon, GridIcon, HistoryIcon, MailIcon, MoonIcon, Spinner, SunIcon, UploadIcon } from './lib/ui'
 import { chartPalette } from './theme'
 import { useTheme } from './lib/useTheme'
 
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: GridIcon, end: true },
   { to: '/imports', label: 'Imports', icon: UploadIcon },
   { to: '/automatisations', label: 'Automatisations', icon: BoltIcon },
+  { to: '/surveillance', label: 'Surveillance', icon: EyeIcon },
   { to: '/mails/apercu', label: 'Aperçu mail', icon: MailIcon },
   { to: '/mails/historique', label: 'Historique mails', icon: HistoryIcon },
 ]
@@ -137,6 +139,7 @@ function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/imports" element={<ImportsPage />} />
           <Route path="/automatisations" element={<AutomatisationsPage />} />
+          <Route path="/surveillance" element={<SurveillancePage />} />
           <Route path="/mails/apercu" element={<MailApercuPage />} />
           <Route path="/mails/historique" element={<MailsHistoriquePage />} />
         </Routes>

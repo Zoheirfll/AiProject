@@ -3,17 +3,21 @@ from datetime import timedelta
 from django.core.mail import EmailMessage
 from django.utils import timezone
 
-from agents.ollama_client import OllamaGenerationError, generate_mail_content
+from agents.ollama_client import OllamaGenerationError, analyser_document, generate_mail_content
 from core.models import ExcelImport, MailLog
 from employees.models import Contract, Employee
 
-from .models import AlerteEnvoyee, RegleAutomatisation
+from .models import AlerteEnvoyee, ExecutionSurveillance, RegleAutomatisation, TacheSurveillance
 
 
 def _resoudre_liste(entries):
     resolved = set()
     for entry in entries:
-        if entry.startswith("departement:"):
+        if entry == "tous":
+            resolved.update(
+                Employee.objects.filter(actif=True).exclude(email="").values_list("email", flat=True)
+            )
+        elif entry.startswith("departement:"):
             departement = entry.split(":", 1)[1]
             resolved.update(
                 Employee.objects.filter(departement__iexact=departement, actif=True)
@@ -170,3 +174,119 @@ def generer_rapport_quotidien(destinataires=None):
         mail_log.erreur = str(exc)
     mail_log.save()
     return mail_log
+
+
+def _lire_contenu_fichier(fichier):
+    """Read a watched document as plain text for Ollama analysis.
+
+    Excel files are flattened to comma-separated rows; anything else is
+    decoded as text (best-effort).
+    """
+    nom = (fichier.name or "").lower()
+
+    if nom.endswith((".xlsx", ".xls")):
+        import openpyxl
+
+        workbook = openpyxl.load_workbook(fichier, data_only=True)
+        sheet = workbook.active
+        lignes = [
+            ", ".join("" if cell is None else str(cell) for cell in row)
+            for row in sheet.iter_rows(values_only=True)
+        ]
+        return "\n".join(lignes)
+
+    fichier.seek(0)
+    return fichier.read().decode("utf-8", errors="replace")
+
+
+def _tache_est_due(tache, now):
+    if tache.frequence == TacheSurveillance.Frequence.HORAIRE:
+        if tache.derniere_execution is None:
+            return True
+        return now - tache.derniere_execution >= timedelta(hours=1)
+
+    # QUOTIDIEN: wait for the configured time of day, even on the very
+    # first run, then fire at most once per calendar day after that.
+    if now.time() < tache.heure_quotidienne:
+        return False
+    if tache.derniere_execution is None:
+        return True
+    return tache.derniere_execution.astimezone(now.tzinfo).date() < now.date()
+
+
+def _executer_tache(tache, marquer_execution=True):
+    """Run one TacheSurveillance now: read, analyze, and email if warranted."""
+    try:
+        contenu = _lire_contenu_fichier(tache.fichier)
+    except Exception as exc:  # noqa: BLE001
+        return _finaliser_execution(tache, marquer_execution, envoye=False, resume=f"Erreur de lecture du fichier: {exc}")
+
+    forcer_envoi = tache.mode_envoi == TacheSurveillance.ModeEnvoi.TOUJOURS
+
+    try:
+        analyse = analyser_document(tache.prompt_analyse, contenu, forcer_envoi)
+    except OllamaGenerationError as exc:
+        return _finaliser_execution(tache, marquer_execution, envoye=False, resume=f"Erreur Ollama: {exc}")
+
+    if not analyse["envoyer"]:
+        resume = analyse["body"] or "Aucune anomalie détectée."
+        return _finaliser_execution(tache, marquer_execution, envoye=False, resume=resume)
+
+    destinataires = _resoudre_liste(tache.destinataires)
+    cc = _resoudre_liste(tache.cc)
+    bcc = _resoudre_liste(tache.bcc)
+
+    mail_log = MailLog.objects.create(
+        sujet_demande=f"Surveillance: {tache.nom}",
+        subject=analyse["subject"],
+        body=analyse["body"],
+        cc=cc,
+        bcc=bcc,
+    )
+
+    if not destinataires:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = "Aucun destinataire résolu pour cette tâche."
+        mail_log.save()
+        return _finaliser_execution(tache, marquer_execution, envoye=False, resume="Aucun destinataire résolu.")
+
+    try:
+        EmailMessage(
+            subject=mail_log.subject, body=mail_log.body,
+            to=destinataires, cc=cc or None, bcc=bcc or None,
+        ).send(fail_silently=False)
+    except Exception as exc:  # noqa: BLE001
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+        mail_log.save()
+        return _finaliser_execution(tache, marquer_execution, envoye=False, resume=f"Erreur d'envoi: {exc}")
+
+    mail_log.status = MailLog.Status.SENT
+    mail_log.sent_at = timezone.now()
+    mail_log.save()
+
+    return _finaliser_execution(tache, marquer_execution, envoye=True, resume=analyse["body"][:500])
+
+
+def _finaliser_execution(tache, marquer_execution, envoye, resume):
+    execution = ExecutionSurveillance.objects.create(tache=tache, envoye=envoye, resume=resume)
+    if marquer_execution:
+        tache.derniere_execution = timezone.now()
+        tache.save(update_fields=["derniere_execution"])
+    return execution
+
+
+def evaluer_taches_surveillance():
+    """Scheduler tick: run every active TacheSurveillance that is due."""
+    now = timezone.now()
+    resultats = []
+
+    for tache in TacheSurveillance.objects.filter(actif=True):
+        if not _tache_est_due(tache, now):
+            continue
+        try:
+            resultats.append(_executer_tache(tache))
+        except Exception:  # noqa: BLE001
+            continue
+
+    return resultats

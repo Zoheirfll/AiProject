@@ -103,3 +103,45 @@ export async function testRegle(id) {
   const { data } = await api.post(`/api/automatisations/${id}/test/`)
   return data
 }
+
+export async function fetchTaches() {
+  const { data } = await api.get('/api/surveillance/')
+  return data
+}
+
+export async function createTache(payload) {
+  const formData = new FormData()
+  formData.append('nom', payload.nom)
+  formData.append('actif', payload.actif)
+  formData.append('fichier', payload.fichier)
+  formData.append('frequence', payload.frequence)
+  formData.append('heure_quotidienne', payload.heure_quotidienne)
+  formData.append('prompt_analyse', payload.prompt_analyse)
+  formData.append('mode_envoi', payload.mode_envoi)
+  formData.append('destinataires', JSON.stringify(payload.destinataires))
+  formData.append('cc', JSON.stringify(payload.cc))
+  formData.append('bcc', JSON.stringify(payload.bcc))
+  const { data } = await api.post('/api/surveillance/', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+  return data
+}
+
+export async function deleteTache(id) {
+  await api.delete(`/api/surveillance/${id}/`)
+}
+
+export async function runTache(id) {
+  const { data } = await api.post(`/api/surveillance/${id}/run/`)
+  return data
+}
+
+export async function testTache(id) {
+  const { data } = await api.post(`/api/surveillance/${id}/test/`)
+  return data
+}
+
+export async function fetchTacheHistorique(tacheId) {
+  const { data } = await api.get('/api/surveillance/historique/', { params: { tache: tacheId } })
+  return data
+}
