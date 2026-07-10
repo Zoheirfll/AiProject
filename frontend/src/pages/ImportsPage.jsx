@@ -1,34 +1,18 @@
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchEmployees, fetchImportHistory, uploadExcelImport } from '../lib/api'
+import { Badge, Card, EmptyCell, EmptyState, PageHeader, Spinner, Toast, UploadIcon } from '../lib/ui'
+import { statusTone } from '../theme'
 
-function StatusBadge({ status }) {
-  const styles = {
-    SUCCESS: 'bg-green-100 text-green-700',
-    FAILED: 'bg-red-100 text-red-700',
-    PENDING: 'bg-yellow-100 text-yellow-700',
-  }
-  return (
-    <span className={`px-2 py-0.5 rounded text-xs font-medium ${styles[status] || ''}`}>
-      {status}
-    </span>
-  )
-}
+const STATUS_LABEL = { SUCCESS: 'Succès', FAILED: 'Échec', PENDING: 'En cours' }
 
 export default function ImportsPage() {
   const fileInputRef = useRef(null)
   const [error, setError] = useState('')
   const queryClient = useQueryClient()
 
-  const historyQuery = useQuery({
-    queryKey: ['imports-history'],
-    queryFn: fetchImportHistory,
-  })
-
-  const employeesQuery = useQuery({
-    queryKey: ['employees'],
-    queryFn: () => fetchEmployees(),
-  })
+  const historyQuery = useQuery({ queryKey: ['imports-history'], queryFn: fetchImportHistory })
+  const employeesQuery = useQuery({ queryKey: ['employees'], queryFn: () => fetchEmployees() })
 
   const uploadMutation = useMutation({
     mutationFn: uploadExcelImport,
@@ -38,9 +22,7 @@ export default function ImportsPage() {
       queryClient.invalidateQueries({ queryKey: ['employees'] })
       if (fileInputRef.current) fileInputRef.current.value = ''
     },
-    onError: (err) => {
-      setError(err?.response?.data?.detail || 'Échec de l\'import.')
-    },
+    onError: (err) => setError(err?.response?.data?.detail || "Échec de l'import."),
   })
 
   const handleFileChange = (e) => {
@@ -49,20 +31,24 @@ export default function ImportsPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto p-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Import Excel</h1>
-        <p className="text-gray-500 mt-1">
-          Importer la liste des employés depuis un fichier Excel (colonnes : matricule, nom, prenom, email, departement, poste, date_embauche).
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-8 p-8">
+      <PageHeader
+        title="Import Excel"
+        description="Colonnes attendues : matricule, nom, prenom, email, departement, poste, date_embauche."
+      />
 
-      <div className="border border-dashed border-gray-300 rounded-lg p-6 flex items-center justify-between">
-        <div>
-          <p className="font-medium text-gray-900">Sélectionner un fichier .xlsx</p>
-          <p className="text-sm text-gray-500">Le fichier sera analysé et les employés créés/mis à jour automatiquement.</p>
+      <Card className="flex items-center justify-between border-dashed">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+            <UploadIcon />
+          </div>
+          <div>
+            <p className="font-medium text-slate-900">Sélectionner un fichier .xlsx</p>
+            <p className="text-sm text-slate-500">Les employés sont créés ou mis à jour automatiquement.</p>
+          </div>
         </div>
-        <label className="cursor-pointer bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700">
+        <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-primary-700">
+          {uploadMutation.isPending && <Spinner />}
           {uploadMutation.isPending ? 'Import en cours…' : 'Choisir un fichier'}
           <input
             ref={fileInputRef}
@@ -73,76 +59,78 @@ export default function ImportsPage() {
             disabled={uploadMutation.isPending}
           />
         </label>
-      </div>
+      </Card>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && <Toast tone="error" message={error} onDismiss={() => setError('')} />}
 
-      <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Historique des imports</h2>
-        {historyQuery.isLoading && <p className="text-gray-500">Chargement…</p>}
-        {historyQuery.data && (
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-4">Date</th>
-                <th className="py-2 pr-4">Statut</th>
-                <th className="py-2 pr-4">Total</th>
-                <th className="py-2 pr-4">Importées</th>
-                <th className="py-2 pr-4">Erreurs</th>
-              </tr>
-            </thead>
-            <tbody>
-              {historyQuery.data.map((row) => (
-                <tr key={row.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-4">{new Date(row.created_at).toLocaleString('fr-FR')}</td>
-                  <td className="py-2 pr-4"><StatusBadge status={row.status} /></td>
-                  <td className="py-2 pr-4">{row.lignes_total}</td>
-                  <td className="py-2 pr-4">{row.lignes_importees}</td>
-                  <td className="py-2 pr-4">{row.lignes_erreurs}</td>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">Historique des imports</h2>
+        <Card padded={false}>
+          {historyQuery.isLoading ? (
+            <div className="flex items-center gap-2 px-5 py-8 text-sm text-slate-400"><Spinner /> Chargement…</div>
+          ) : historyQuery.data?.length === 0 ? (
+            <EmptyState title="Aucun import pour le moment" />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-slate-500">
+                  <th className="px-5 py-3 font-medium">Date</th>
+                  <th className="px-5 py-3 font-medium">Statut</th>
+                  <th className="px-5 py-3 font-medium">Total</th>
+                  <th className="px-5 py-3 font-medium">Importées</th>
+                  <th className="px-5 py-3 font-medium">Erreurs</th>
                 </tr>
-              ))}
-              {historyQuery.data.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-4 text-gray-400 text-center">Aucun import pour le moment.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {historyQuery.data.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                    <td className="px-5 py-3 text-slate-500">{new Date(row.created_at).toLocaleString('fr-FR')}</td>
+                    <td className="px-5 py-3">
+                      <Badge tone={statusTone[row.status] || 'neutral'}>{STATUS_LABEL[row.status] || row.status}</Badge>
+                    </td>
+                    <td className="px-5 py-3 text-slate-700">{row.lignes_total}</td>
+                    <td className="px-5 py-3 text-slate-700">{row.lignes_importees}</td>
+                    <td className="px-5 py-3 text-slate-700">{row.lignes_erreurs || <EmptyCell />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </section>
 
-      <section>
-        <h2 className="text-lg font-semibold text-gray-900 mb-3">Employés</h2>
-        {employeesQuery.isLoading && <p className="text-gray-500">Chargement…</p>}
-        {employeesQuery.data && (
-          <table className="w-full text-sm border-collapse">
-            <thead>
-              <tr className="text-left text-gray-500 border-b border-gray-200">
-                <th className="py-2 pr-4">Matricule</th>
-                <th className="py-2 pr-4">Nom</th>
-                <th className="py-2 pr-4">Prénom</th>
-                <th className="py-2 pr-4">Département</th>
-                <th className="py-2 pr-4">Poste</th>
-              </tr>
-            </thead>
-            <tbody>
-              {employeesQuery.data.map((emp) => (
-                <tr key={emp.id} className="border-b border-gray-100">
-                  <td className="py-2 pr-4">{emp.matricule}</td>
-                  <td className="py-2 pr-4">{emp.nom}</td>
-                  <td className="py-2 pr-4">{emp.prenom}</td>
-                  <td className="py-2 pr-4">{emp.departement}</td>
-                  <td className="py-2 pr-4">{emp.poste}</td>
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold text-slate-900">Employés</h2>
+        <Card padded={false}>
+          {employeesQuery.isLoading ? (
+            <div className="flex items-center gap-2 px-5 py-8 text-sm text-slate-400"><Spinner /> Chargement…</div>
+          ) : employeesQuery.data?.length === 0 ? (
+            <EmptyState title="Aucun employé importé" />
+          ) : (
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-slate-500">
+                  <th className="px-5 py-3 font-medium">Matricule</th>
+                  <th className="px-5 py-3 font-medium">Nom</th>
+                  <th className="px-5 py-3 font-medium">Prénom</th>
+                  <th className="px-5 py-3 font-medium">Département</th>
+                  <th className="px-5 py-3 font-medium">Poste</th>
                 </tr>
-              ))}
-              {employeesQuery.data.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="py-4 text-gray-400 text-center">Aucun employé importé.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
+              </thead>
+              <tbody>
+                {employeesQuery.data.map((emp) => (
+                  <tr key={emp.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                    <td className="px-5 py-3 font-medium text-slate-900">{emp.matricule}</td>
+                    <td className="px-5 py-3 text-slate-700">{emp.nom}</td>
+                    <td className="px-5 py-3 text-slate-700">{emp.prenom}</td>
+                    <td className="px-5 py-3 text-slate-700">{emp.departement || <EmptyCell />}</td>
+                    <td className="px-5 py-3 text-slate-700">{emp.poste || <EmptyCell />}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
       </section>
     </div>
   )

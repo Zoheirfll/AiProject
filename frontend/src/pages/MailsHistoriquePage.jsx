@@ -1,20 +1,17 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { fetchMailHistorique, testerSmtp } from '../lib/api'
+import { Badge, Button, Card, CheckCircleIcon, EmptyCell, EmptyState, PageHeader, Spinner, Toast } from '../lib/ui'
+import { statusTone } from '../theme'
 
-function StatusBadge({ status }) {
-  const styles = {
-    SENT: 'bg-emerald-100 text-emerald-700',
-    FAILED: 'bg-red-100 text-red-700',
-    DRAFT: 'bg-yellow-100 text-yellow-700',
-  }
-  const labels = { SENT: 'Envoyé', FAILED: 'Échec', DRAFT: 'Brouillon' }
-  return (
-    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${styles[status] || 'bg-gray-100 text-gray-600'}`}>
-      {labels[status] || status}
-    </span>
-  )
-}
+const STATUS_LABEL = { SENT: 'Envoyé', FAILED: 'Échec', DRAFT: 'Brouillon' }
+
+const FILTERS = [
+  { value: '', label: 'Tous' },
+  { value: 'SENT', label: 'Envoyé' },
+  { value: 'FAILED', label: 'Échec' },
+  { value: 'DRAFT', label: 'Brouillon' },
+]
 
 export default function MailsHistoriquePage() {
   const [statut, setStatut] = useState('')
@@ -28,43 +25,37 @@ export default function MailsHistoriquePage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-8">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Historique des mails</h1>
-          <p className="mt-1 text-gray-500">Envois automatiques (règles) et manuels (aperçu).</p>
-        </div>
-        <button
-          onClick={() => smtpTestMutation.mutate()}
-          disabled={smtpTestMutation.isPending}
-          className="rounded-md border border-gray-300 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-        >
-          {smtpTestMutation.isPending ? 'Test en cours…' : 'Tester la connexion SMTP'}
-        </button>
-      </div>
+      <PageHeader
+        title="Historique des mails"
+        description="Envois automatiques (règles) et manuels (aperçu)."
+        actions={
+          <Button variant="secondary" onClick={() => smtpTestMutation.mutate()} disabled={smtpTestMutation.isPending}>
+            {smtpTestMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
+            Tester la connexion SMTP
+          </Button>
+        }
+      />
 
       {smtpTestMutation.isSuccess && (
-        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-          Connexion SMTP OK.
-        </div>
+        <Toast tone="success" message="Connexion SMTP OK." onDismiss={() => smtpTestMutation.reset()} />
       )}
       {smtpTestMutation.isError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {smtpTestMutation.error?.response?.data?.detail || 'Échec du test SMTP.'}
-        </div>
+        <Toast
+          tone="error"
+          message={smtpTestMutation.error?.response?.data?.detail || 'Échec du test SMTP.'}
+          onDismiss={() => smtpTestMutation.reset()}
+        />
       )}
 
       <div className="flex gap-2">
-        {[
-          { value: '', label: 'Tous' },
-          { value: 'SENT', label: 'Envoyé' },
-          { value: 'FAILED', label: 'Échec' },
-          { value: 'DRAFT', label: 'Brouillon' },
-        ].map((opt) => (
+        {FILTERS.map((opt) => (
           <button
             key={opt.value}
             onClick={() => setStatut(opt.value)}
-            className={`rounded-full px-3 py-1.5 text-sm font-medium ${
-              statut === opt.value ? 'bg-gray-900 text-white' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50'
+            className={`rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
+              statut === opt.value
+                ? 'bg-primary-600 text-white'
+                : 'border border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
             }`}
           >
             {opt.label}
@@ -72,38 +63,43 @@ export default function MailsHistoriquePage() {
         ))}
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-gray-200 bg-white">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-200 bg-gray-50 text-left text-gray-500">
-              <th className="px-4 py-3 font-medium">Date</th>
-              <th className="px-4 py-3 font-medium">Sujet</th>
-              <th className="px-4 py-3 font-medium">Statut</th>
-              <th className="px-4 py-3 font-medium">Erreur</th>
-            </tr>
-          </thead>
-          <tbody>
-            {historyQuery.isLoading && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">Chargement…</td>
+      <Card padded={false}>
+        {historyQuery.isLoading ? (
+          <div className="flex items-center gap-2 px-5 py-8 text-sm text-slate-400">
+            <Spinner /> Chargement…
+          </div>
+        ) : historyQuery.data?.length === 0 ? (
+          <div className="p-2">
+            <EmptyState title="Aucun mail pour le moment" description="Les envois automatiques et manuels apparaîtront ici." />
+          </div>
+        ) : (
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-100 text-left text-slate-500">
+                <th className="px-5 py-3 font-medium">Date</th>
+                <th className="px-5 py-3 font-medium">Sujet</th>
+                <th className="px-5 py-3 font-medium">Statut</th>
+                <th className="px-5 py-3 font-medium">Erreur</th>
               </tr>
-            )}
-            {historyQuery.data?.map((row) => (
-              <tr key={row.id} className="border-b border-gray-100 last:border-0">
-                <td className="px-4 py-3 text-gray-600">{new Date(row.created_at).toLocaleString('fr-FR')}</td>
-                <td className="px-4 py-3 text-gray-900">{row.subject || row.sujet_demande}</td>
-                <td className="px-4 py-3"><StatusBadge status={row.status} /></td>
-                <td className="px-4 py-3 text-red-600">{row.erreur}</td>
-              </tr>
-            ))}
-            {historyQuery.data?.length === 0 && (
-              <tr>
-                <td colSpan={4} className="px-4 py-6 text-center text-gray-400">Aucun mail pour le moment.</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {historyQuery.data?.map((row) => (
+                <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60">
+                  <td className="px-5 py-3 text-slate-500">{new Date(row.created_at).toLocaleString('fr-FR')}</td>
+                  <td className="px-5 py-3 font-medium text-slate-900">{row.subject || row.sujet_demande}</td>
+                  <td className="px-5 py-3">
+                    <Badge tone={statusTone[row.status] || 'neutral'}>
+                      {row.status === 'SENT' && <CheckCircleIcon className="h-3 w-3" />}
+                      {STATUS_LABEL[row.status] || row.status}
+                    </Badge>
+                  </td>
+                  <td className="px-5 py-3 text-red-600">{row.erreur || <EmptyCell />}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </Card>
     </div>
   )
 }
