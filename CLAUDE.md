@@ -49,7 +49,7 @@ Services once running:
 | n8n      | http://localhost:5678 |
 | Ollama   | http://localhost:11434 |
 
-No test suite exists yet (Phase 1 was scaffolding only).
+No test suite exists yet.
 
 ## Architecture
 
@@ -61,9 +61,15 @@ No test suite exists yet (Phase 1 was scaffolding only).
 - `agents` — LangChain/Ollama AI agents (analysis, chat assistant, orchestration)
 - `integrations` — everything that talks outward: APScheduler config (`integrations/scheduler.py`), WebSocket consumer for real-time notifications (`integrations/consumers.py` + `routing.py`), and (planned) n8n webhook endpoints
 
-Each app currently exposes a `GET /api/<app>/health/` placeholder endpoint — replace with real endpoints as features land.
+Each app still exposes a `GET /api/<app>/health/` placeholder endpoint alongside real ones as they land.
 
-**GraphQL**: single schema at `backend/config/schema.py`, mounted at `/graphql/` via `AsyncGraphQLView` in `config/urls.py`. `strawberry_django` is installed for future model-bound types but not yet wired to any model.
+**Excel import (Phase 2)**: `core.models.ExcelImport` tracks each upload (status, row counts, per-row errors as JSON). `core.services.parse_employee_excel()` reads an `.xlsx` via openpyxl and upserts `employees.Employee` rows by `matricule`. Expected columns (case-insensitive, French accents normalized in `core.services.COLUMN_MAP`): `matricule`, `nom`, `prenom`, `email`, `departement`, `poste`, `date_embauche`. `POST /api/imports/upload/` (multipart, field `fichier`) runs the parse synchronously and returns the `ExcelImport` record; `GET /api/imports/historique/` lists past imports; `GET /api/employes/` lists employees (filters: `departement`, `actif`, `search`).
+
+**employees app models**: `Employee` (matricule unique) and `Contract` (FK to Employee, `type` in CDI/CDD/STAGE/AUTRE, tracks `date_debut`/`date_fin` — this is what Phase 5's "contrats expirants" automation will query).
+
+**GraphQL**: single schema at `backend/config/schema.py`, mounted at `/graphql/` via `AsyncGraphQLView` in `config/urls.py`, wrapped in `csrf_exempt` (internal API, no cookie-based session auth in play). Only a `health` test field exists — no models are exposed via GraphQL yet. `strawberry_django` is intentionally NOT in `INSTALLED_APPS`: it was removed because the installed `strawberry-graphql-django==0.44.1` pulls in a `strawberry-graphql` version incompatible with `strawberry.auto` (`ModuleNotFoundError: No module named 'strawberry.auto'`) — pin compatible versions together before re-adding it.
+
+**Media uploads**: `MEDIA_ROOT = backend/media/`, served via `MEDIA_URL = "media/"` — not committed to git (`media/` in `.gitignore`).
 
 **ASGI/WebSocket**: `config/asgi.py` routes HTTP through Django's ASGI app and WebSocket through `integrations/routing.py` → `NotificationsConsumer`, which broadcasts to the `notifications` channel group via Django Channels (Redis-backed channel layer).
 

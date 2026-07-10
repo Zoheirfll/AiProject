@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.urls import include, path
+from django.views.decorators.csrf import csrf_exempt
 from strawberry.django.views import AsyncGraphQLView
 
 from config.schema import schema
@@ -10,5 +11,5 @@ urlpatterns = [
     path("api/", include("employees.urls")),
     path("api/", include("agents.urls")),
     path("api/", include("integrations.urls")),
-    path("graphql/", AsyncGraphQLView.as_view(schema=schema)),
+    path("graphql/", csrf_exempt(AsyncGraphQLView.as_view(schema=schema))),
 ]
