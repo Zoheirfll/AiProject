@@ -122,3 +122,35 @@ class EvaluerReglesTests(TestCase):
 
         self.assertEqual(resultats, [])
         self.assertEqual(len(mail.outbox), 0)
+
+
+class RegleRunTestApiTests(APITestCase):
+    def setUp(self):
+        self.employee = Employee.objects.create(
+            matricule="M003", nom="Haddad", prenom="Nour",
+            email="nour@example.com", departement="RH",
+        )
+        today = timezone.localdate()
+        self.contract = Contract.objects.create(
+            employee=self.employee, type=Contract.Type.CDD,
+            date_debut=date(2026, 1, 1), date_fin=today + timedelta(days=20),
+        )
+        self.regle = RegleAutomatisation.objects.create(
+            nom="Alerte CDD", delais_jours=[20], destinataires=["nour@example.com"],
+        )
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    @patch("automatisations.services.generate_mail_content")
+    def test_run_sends_matching_alerts(self, mock_generate):
+        mock_generate.return_value = {"subject": "S", "body": "B"}
+        response = self.client.post(f"/api/automatisations/{self.regle.id}/run/")
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
+    @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+    @patch("automatisations.services.generate_mail_content")
+    def test_test_endpoint_does_not_mark_alert(self, mock_generate):
+        mock_generate.return_value = {"subject": "S", "body": "B"}
+        response = self.client.post(f"/api/automatisations/{self.regle.id}/test/")
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(AlerteEnvoyee.objects.exists())
