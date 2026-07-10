@@ -22,3 +22,12 @@ export async function fetchEmployees(params = {}) {
   const { data } = await api.get('/api/employes/', { params })
   return data
 }
+
+export async function generateMailApercu({ employeeId, sujetDemande, promptOverride }) {
+  const { data } = await api.post('/api/mails/apercu/', {
+    employee_id: employeeId,
+    sujet_demande: sujetDemande,
+    prompt_override: promptOverride || undefined,
+  })
+  return data
+}

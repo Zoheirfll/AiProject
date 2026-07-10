@@ -22,3 +22,31 @@ class ExcelImport(models.Model):
 
     def __str__(self):
         return f"Import {self.id} - {self.status}"
+
+
+class MailLog(models.Model):
+    class Status(models.TextChoices):
+        DRAFT = "DRAFT", "Brouillon"
+        SENT = "SENT", "Envoyé"
+        FAILED = "FAILED", "Échec"
+
+    employee = models.ForeignKey(
+        "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mails",
+    )
+    sujet_demande = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255, blank=True)
+    body = models.TextField(blank=True)
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
+    erreur = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"Mail {self.id} - {self.status}"
