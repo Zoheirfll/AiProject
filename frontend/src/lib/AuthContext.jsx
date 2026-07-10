@@ -8,10 +8,17 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    fetchMe()
-      .then(setUser)
-      .catch(() => setUser(null))
-      .finally(() => setLoading(false))
+    // Always ensure a fresh csrftoken cookie exists — needed for logout (and
+    // any other write) even when the session was restored on page load
+    // without going through login() first.
+    fetchCsrf()
+      .catch(() => {})
+      .finally(() => {
+        fetchMe()
+          .then(setUser)
+          .catch(() => setUser(null))
+          .finally(() => setLoading(false))
+      })
   }, [])
 
   const login = async (username, password) => {
@@ -22,8 +29,14 @@ export function AuthProvider({ children }) {
   }
 
   const logout = async () => {
-    await apiLogout()
-    setUser(null)
+    try {
+      await apiLogout()
+    } finally {
+      // Always clear client-side state, even if the server call failed
+      // (expired session, CSRF hiccup, network) — the user still expects
+      // to be logged out locally and sent back to the login page.
+      setUser(null)
+    }
   }
 
   return (
