@@ -2,7 +2,41 @@ import axios from 'axios'
 
 export const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  withCredentials: true,
 })
+
+function readCookie(name) {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+const UNSAFE_METHODS = new Set(['post', 'put', 'patch', 'delete'])
+
+api.interceptors.request.use((config) => {
+  if (UNSAFE_METHODS.has((config.method || '').toLowerCase())) {
+    const token = readCookie('csrftoken')
+    if (token) config.headers['X-CSRFToken'] = token
+  }
+  return config
+})
+
+export async function fetchCsrf() {
+  await api.get('/api/auth/csrf/')
+}
+
+export async function login(username, password) {
+  const { data } = await api.post('/api/auth/login/', { username, password })
+  return data
+}
+
+export async function logout() {
+  await api.post('/api/auth/logout/')
+}
+
+export async function fetchMe() {
+  const { data } = await api.get('/api/auth/me/')
+  return data
+}
 
 export async function uploadExcelImport(file, onUploadProgress) {
   const formData = new FormData()

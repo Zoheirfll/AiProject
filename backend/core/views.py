@@ -5,9 +5,11 @@ from django.core.mail import get_connection
 from django.utils import timezone
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsDRH
 from agents.ollama_client import OllamaGenerationError, generate_mail_content
 from employees.models import Employee
 
@@ -17,6 +19,8 @@ from .services import parse_employee_excel, parse_mail_masse_excel, send_mail_lo
 
 
 class HealthView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         return Response({"status": "ok", "app": "core"})
 
@@ -59,6 +63,8 @@ class ImportHistoryView(ListAPIView):
 
 
 class ImportDeleteView(APIView):
+    permission_classes = [IsDRH]
+
     def delete(self, request, pk):
         try:
             excel_import = ExcelImport.objects.get(pk=pk)
@@ -70,6 +76,8 @@ class ImportDeleteView(APIView):
 
 class ImportMappingView(APIView):
     """Get/save the reusable Excel column mapping and the watched-folder path."""
+
+    permission_classes = [IsDRH]
 
     def get(self, request):
         config = ImportConfig.get_solo()
@@ -330,6 +338,8 @@ class MailHistoriqueView(ListAPIView):
 
 
 class SmtpTestView(APIView):
+    permission_classes = [IsDRH]
+
     def post(self, request):
         import smtplib
 

@@ -3,10 +3,24 @@ import AutomatisationsPage from './pages/AutomatisationsPage'
 import ConfigurationPage from './pages/ConfigurationPage'
 import DashboardPage from './pages/DashboardPage'
 import ImportsPage from './pages/ImportsPage'
+import LoginPage from './pages/LoginPage'
 import MailApercuPage from './pages/MailApercuPage'
 import MailsHistoriquePage from './pages/MailsHistoriquePage'
 import SurveillancePage from './pages/SurveillancePage'
-import { BoltIcon, EyeIcon, GearIcon, GridIcon, HistoryIcon, MailIcon, MoonIcon, SunIcon, UploadIcon } from './lib/ui'
+import { useAuth } from './lib/AuthContext'
+import { ProtectedRoute } from './lib/ProtectedRoute'
+import {
+  BoltIcon,
+  EyeIcon,
+  GearIcon,
+  GridIcon,
+  HistoryIcon,
+  LogoutIcon,
+  MailIcon,
+  MoonIcon,
+  SunIcon,
+  UploadIcon,
+} from './lib/ui'
 import { useTheme } from './lib/useTheme'
 
 const NAV_ITEMS = [
@@ -16,8 +30,10 @@ const NAV_ITEMS = [
   { to: '/surveillance', label: 'Surveillance', icon: EyeIcon },
   { to: '/mails/apercu', label: 'Aperçu mail', icon: MailIcon },
   { to: '/mails/historique', label: 'Historique mails', icon: HistoryIcon },
-  { to: '/configuration', label: 'Configuration', icon: GearIcon },
+  { to: '/configuration', label: 'Configuration', icon: GearIcon, drhOnly: true },
 ]
+
+const ROLE_LABEL = { DRH: 'DRH', CHARGE_RH: 'Chargé RH' }
 
 function ThemeToggle() {
   const { theme, toggleTheme } = useTheme()
@@ -34,6 +50,8 @@ function ThemeToggle() {
 }
 
 function Sidebar() {
+  const { user, isDrh, logout } = useAuth()
+
   return (
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
       <div className="flex items-center justify-between px-5 py-5">
@@ -47,7 +65,7 @@ function Sidebar() {
       </div>
 
       <nav className="flex-1 space-y-1 px-3">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        {NAV_ITEMS.filter((item) => !item.drhOnly || isDrh).map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -66,14 +84,30 @@ function Sidebar() {
         ))}
       </nav>
 
-      <div className="border-t border-slate-100 px-5 py-4 text-xs text-slate-400 dark:border-slate-700 dark:text-slate-500">
-        Sprint 3 · Local-first · Loi 18/07
+      <div className="border-t border-slate-100 px-5 py-4 dark:border-slate-700">
+        {user && (
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium text-slate-700 dark:text-slate-200">{user.username}</p>
+              <p className="text-xs text-slate-400 dark:text-slate-500">{ROLE_LABEL[user.role] || user.role}</p>
+            </div>
+            <button
+              onClick={logout}
+              aria-label="Déconnexion"
+              title="Déconnexion"
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
+            >
+              <LogoutIcon />
+            </button>
+          </div>
+        )}
+        <p className="text-xs text-slate-400 dark:text-slate-500">Local-first · Loi 18/07</p>
       </div>
     </aside>
   )
 }
 
-function App() {
+function AppShell() {
   return (
     <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100">
       <Sidebar />
@@ -85,10 +119,33 @@ function App() {
           <Route path="/surveillance" element={<SurveillancePage />} />
           <Route path="/mails/apercu" element={<MailApercuPage />} />
           <Route path="/mails/historique" element={<MailsHistoriquePage />} />
-          <Route path="/configuration" element={<ConfigurationPage />} />
+          <Route
+            path="/configuration"
+            element={
+              <ProtectedRoute drhOnly>
+                <ConfigurationPage />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </main>
     </div>
+  )
+}
+
+function App() {
+  return (
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <AppShell />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   )
 }
 

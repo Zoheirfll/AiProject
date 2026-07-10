@@ -8,6 +8,7 @@ import {
   runTache,
   testTache,
 } from '../lib/api'
+import { useAuth } from '../lib/AuthContext'
 import {
   Badge,
   Button,
@@ -193,7 +194,7 @@ function HistoriqueModal({ tache, onClose }) {
   )
 }
 
-function TacheCard({ tache, onRun, onTest, onDelete, onVoirHistorique, isRunning, isTesting }) {
+function TacheCard({ tache, onRun, onTest, onDelete, onVoirHistorique, isRunning, isTesting, isDrh }) {
   return (
     <Card className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
@@ -228,15 +229,18 @@ function TacheCard({ tache, onRun, onTest, onDelete, onVoirHistorique, isRunning
         <IconButton label="Historique" onClick={onVoirHistorique}>
           <HistoryIcon />
         </IconButton>
-        <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
-          <TrashIcon />
-        </IconButton>
+        {isDrh && (
+          <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
+            <TrashIcon />
+          </IconButton>
+        )}
       </div>
     </Card>
   )
 }
 
 export default function SurveillancePage() {
+  const { isDrh } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const [activeId, setActiveId] = useState(null)
@@ -334,6 +338,7 @@ export default function SurveillancePage() {
             onVoirHistorique={() => setHistoriqueTache(tache)}
             isRunning={runMutation.isPending && activeId === tache.id}
             isTesting={testMutation.isPending && activeId === tache.id}
+            isDrh={isDrh}
           />
         ))}
 

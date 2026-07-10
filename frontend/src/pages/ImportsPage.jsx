@@ -27,6 +27,7 @@ import {
   UploadIcon,
 } from '../lib/ui'
 import { statusTone } from '../theme'
+import { useAuth } from '../lib/AuthContext'
 
 const STATUS_LABEL = { SUCCESS: 'Succès', FAILED: 'Échec', PENDING: 'En cours' }
 const SOURCE_LABEL = { UPLOAD: 'Upload manuel', DOSSIER: 'Dossier surveillé' }
@@ -138,6 +139,7 @@ function MappingConfig() {
 }
 
 function ImportHistorySection() {
+  const { isDrh } = useAuth()
   const queryClient = useQueryClient()
   const [expanded, setExpanded] = useState(null)
 
@@ -195,15 +197,17 @@ function ImportHistorySection() {
                       )}
                     </td>
                     <td className="px-5 py-3 text-right">
-                      <button
-                        aria-label="Supprimer"
-                        className="text-slate-400 hover:text-red-600"
-                        onClick={() => {
-                          if (confirm('Supprimer cet import ?')) deleteMutation.mutate(row.id)
-                        }}
-                      >
-                        <TrashIcon />
-                      </button>
+                      {isDrh && (
+                        <button
+                          aria-label="Supprimer"
+                          className="text-slate-400 hover:text-red-600"
+                          onClick={() => {
+                            if (confirm('Supprimer cet import ?')) deleteMutation.mutate(row.id)
+                          }}
+                        >
+                          <TrashIcon />
+                        </button>
+                      )}
                     </td>
                   </tr>
                   {expanded === row.id && row.erreurs?.length > 0 && (
@@ -364,6 +368,7 @@ function EmployeesSection() {
 }
 
 export default function ImportsPage() {
+  const { isDrh } = useAuth()
   const fileInputRef = useRef(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -446,7 +451,7 @@ export default function ImportsPage() {
       {success && <Toast tone="success" message={success} onDismiss={() => setSuccess('')} />}
       {error && <Toast tone="error" message={error} onDismiss={() => setError('')} />}
 
-      <MappingConfig />
+      {isDrh && <MappingConfig />}
 
       <ImportHistorySection />
 

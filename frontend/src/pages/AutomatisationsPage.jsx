@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useAuth } from '../lib/AuthContext'
 import {
   createRegle,
   deleteRegle,
@@ -249,7 +250,7 @@ function TestModal({ regle, onClose, onConfirm, isPending }) {
   )
 }
 
-function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onDelete, isRunning }) {
+function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onDelete, isRunning, isDrh }) {
   return (
     <Card className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
@@ -279,15 +280,18 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
           {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
         </Button>
         <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
-        <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
-          <TrashIcon />
-        </IconButton>
+        {isDrh && (
+          <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
+            <TrashIcon />
+          </IconButton>
+        )}
       </div>
     </Card>
   )
 }
 
 export default function AutomatisationsPage() {
+  const { isDrh } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const [activeId, setActiveId] = useState(null)
@@ -396,6 +400,7 @@ export default function AutomatisationsPage() {
               if (window.confirm(`Supprimer la règle "${regle.nom}" ?`)) deleteMutation.mutate(regle.id)
             }}
             isRunning={runMutation.isPending && activeId === regle.id}
+            isDrh={isDrh}
           />
         ))}
 

@@ -29,6 +29,19 @@ Services :
 | n8n      | http://localhost:5678 |
 | Ollama   | http://localhost:11434 |
 
+## Authentification
+
+L'application nécessite un compte pour se connecter — pas d'accès anonyme (l'API rejette toute requête non authentifiée en dehors des endpoints `/api/*/health/` et `/api/auth/*`). Deux rôles : **DRH** (accès complet, y compris `/configuration` et les suppressions) et **Chargé RH** (création/exécution/test, sans configuration globale ni suppression).
+
+Créer un premier compte :
+
+```bash
+docker compose exec backend python manage.py create_hr_user drh drh@example.com --password "un-mot-de-passe-fort" --role DRH
+docker compose exec backend python manage.py create_hr_user charge_rh charge@example.com --password "un-mot-de-passe-fort" --role CHARGE_RH
+```
+
+Puis se connecter sur http://localhost:5173/login. La session utilise un cookie httponly (pas de token en `localStorage`) protégé par CSRF ; 5 échecs de connexion pour un même nom d'utilisateur en 15 minutes bloquent temporairement les tentatives suivantes.
+
 ## Configuration SMTP (Gmail)
 
 L'envoi de mails utilise Gmail SMTP. Les identifiants viennent uniquement du fichier `.env` (jamais commités, jamais codés en dur) :

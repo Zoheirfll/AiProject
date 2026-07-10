@@ -2,9 +2,11 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework.generics import ListAPIView, ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.parsers import MultiPartParser
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.permissions import IsDRH
 from core.serializers import MailLogSerializer
 from employees.models import Contract
 
@@ -20,6 +22,8 @@ from .services import _envoyer_alerte, _executer_tache, apercu_regle, evaluer_re
 
 
 class HealthView(APIView):
+    permission_classes = [AllowAny]
+
     def get(self, request):
         return Response({"status": "ok", "app": "automatisations"})
 
@@ -32,6 +36,11 @@ class RegleListCreateView(ListCreateAPIView):
 class RegleDetailView(RetrieveUpdateDestroyAPIView):
     queryset = RegleAutomatisation.objects.all()
     serializer_class = RegleAutomatisationSerializer
+
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [IsDRH()]
+        return [IsAuthenticated()]
 
 
 class RegleRunView(APIView):
@@ -83,6 +92,8 @@ class RegleHistoriqueView(ListAPIView):
 class AutomatisationConfigView(APIView):
     """US-E3-03: global Ollama prompt + US-E3-02: daily-report time, both configurable."""
 
+    permission_classes = [IsDRH]
+
     def get(self, request):
         return Response(AutomatisationConfigSerializer(AutomatisationConfig.get_solo()).data)
 
@@ -104,6 +115,11 @@ class TacheSurveillanceDetailView(RetrieveUpdateDestroyAPIView):
     queryset = TacheSurveillance.objects.all()
     serializer_class = TacheSurveillanceSerializer
     parser_classes = [MultiPartParser]
+
+    def get_permissions(self):
+        if self.request.method == "DELETE":
+            return [IsDRH()]
+        return [IsAuthenticated()]
 
 
 class TacheSurveillanceRunView(APIView):

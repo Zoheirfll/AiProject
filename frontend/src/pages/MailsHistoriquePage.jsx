@@ -3,6 +3,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { fetchMailHistorique, testerSmtp } from '../lib/api'
 import { Badge, Button, Card, CheckCircleIcon, EmptyCell, EmptyState, PageHeader, Spinner, Toast } from '../lib/ui'
 import { statusTone } from '../theme'
+import { useAuth } from '../lib/AuthContext'
 
 const STATUS_LABEL = { SENT: 'Envoyé', FAILED: 'Échec', DRAFT: 'Brouillon' }
 
@@ -14,6 +15,7 @@ const FILTERS = [
 ]
 
 export default function MailsHistoriquePage() {
+  const { isDrh } = useAuth()
   const [statut, setStatut] = useState('')
 
   const historyQuery = useQuery({
@@ -29,10 +31,12 @@ export default function MailsHistoriquePage() {
         title="Historique des mails"
         description="Envois automatiques (règles) et manuels (aperçu)."
         actions={
-          <Button variant="secondary" onClick={() => smtpTestMutation.mutate()} disabled={smtpTestMutation.isPending}>
-            {smtpTestMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
-            Tester la connexion SMTP
-          </Button>
+          isDrh && (
+            <Button variant="secondary" onClick={() => smtpTestMutation.mutate()} disabled={smtpTestMutation.isPending}>
+              {smtpTestMutation.isPending && <Spinner className="h-3.5 w-3.5" />}
+              Tester la connexion SMTP
+            </Button>
+          )
         }
       />
 

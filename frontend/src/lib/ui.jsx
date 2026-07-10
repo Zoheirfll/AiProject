@@ -289,6 +289,14 @@ export function GearIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function LogoutIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M8 4H5.5A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8M13 13.5L17 10l-4-3.5M17 10H7.5" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function EyeIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

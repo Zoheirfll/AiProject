@@ -7,6 +7,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import TestCase, override_settings
 from rest_framework.test import APITestCase
 
+from accounts.test_utils import make_user
 from employees.models import Employee
 
 from .models import ExcelImport, MailLog
@@ -22,6 +23,9 @@ class MailLogModelTests(TestCase):
 
 
 class MailApercuAdHocApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     @patch("core.views.generate_mail_content")
     def test_apercu_without_employee_uses_destinataire_email(self, mock_generate):
         mock_generate.return_value = {"subject": "S", "body": "B"}
@@ -50,6 +54,9 @@ class MailApercuAdHocApiTests(APITestCase):
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class MailEnvoyerApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     def test_envoyer_sends_edited_content(self):
         employee = Employee.objects.create(
             matricule="M010", nom="Ait", prenom="Ali", email="ali@example.com",
@@ -98,6 +105,9 @@ class MailEnvoyerApiTests(APITestCase):
 
 
 class MailHistoriqueApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     def test_filters_by_statut(self):
         employee = Employee.objects.create(matricule="M012", nom="Ziani", prenom="Karim")
         MailLog.objects.create(employee=employee, sujet_demande="A", status=MailLog.Status.SENT)
@@ -112,6 +122,9 @@ class MailHistoriqueApiTests(APITestCase):
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.smtp.EmailBackend")
 class SmtpTestApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     @patch("django.core.mail.backends.smtp.EmailBackend.open")
     def test_smtp_test_success(self, mock_open):
         mock_open.return_value = True
@@ -139,6 +152,9 @@ def _build_xlsx(rows):
 
 
 class ImportUploadApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     def test_missing_required_columns_is_reported_as_failed(self):
         content = _build_xlsx([["colonne_inconnue"], ["valeur"]])
         upload = SimpleUploadedFile(
@@ -170,6 +186,9 @@ class ImportUploadApiTests(APITestCase):
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class MailMasseApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     @patch("core.views.generate_mail_content")
     def test_apercu_masse_generates_one_draft_per_row(self, mock_generate):
         mock_generate.return_value = {"subject": "S", "body": "B"}

@@ -20,6 +20,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "channels",
     "django_apscheduler",
+    "accounts",
     "core",
     "employees",
     "agents",
@@ -27,6 +28,8 @@ INSTALLED_APPS = [
     "automatisations",
     "dashboard",
 ]
+
+AUTH_USER_MODEL = "accounts.User"
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -102,6 +105,25 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 CORS_ALLOWED_ORIGINS = env.list(
     "CORS_ALLOWED_ORIGINS", default=["http://localhost:5173"]
 )
+# Required so the browser sends/receives the sessionid + csrftoken cookies
+# on cross-origin XHR/fetch calls from the Vite dev server (port 5173) to
+# the API (port 8000) — both are localhost, different ports.
+CORS_ALLOW_CREDENTIALS = True
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "rest_framework.authentication.SessionAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+}
+
+# Session-cookie auth (not token-in-localStorage) so the API is protected
+# the same way Django admin is: httponly cookie, CSRF-protected writes.
+SESSION_COOKIE_SAMESITE = "Lax"
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_AGE = env.int("SESSION_COOKIE_AGE", default=60 * 60 * 8)  # 8h
 
 # Ollama / LangChain
 OLLAMA_BASE_URL = env("OLLAMA_BASE_URL", default="http://localhost:11434")

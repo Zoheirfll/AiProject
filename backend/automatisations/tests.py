@@ -8,6 +8,7 @@ from django.test import TestCase, override_settings
 from django.utils import timezone
 from rest_framework.test import APITestCase
 
+from accounts.test_utils import make_user
 from agents.ollama_client import OllamaGenerationError
 from core.models import MailLog
 from employees.models import Contract, Employee
@@ -17,6 +18,9 @@ from .services import _executer_tache, _tache_est_due, evaluer_regles, evaluer_t
 
 
 class RegleAutomatisationApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     def test_create_and_list(self):
         payload = {
             "nom": "Alerte CDD",
@@ -128,6 +132,7 @@ class EvaluerReglesTests(TestCase):
 
 class RegleRunTestApiTests(APITestCase):
     def setUp(self):
+        self.client.force_authenticate(user=make_user())
         self.employee = Employee.objects.create(
             matricule="M003", nom="Haddad", prenom="Nour",
             email="nour@example.com", departement="RH",
@@ -264,6 +269,9 @@ class ExecuterTacheTests(TestCase):
 
 
 class TacheSurveillanceApiTests(APITestCase):
+    def setUp(self):
+        self.client.force_authenticate(user=make_user())
+
     @patch("automatisations.services.analyser_document")
     def test_run_endpoint_executes_now(self, mock_analyser):
         mock_analyser.return_value = {"envoyer": True, "subject": "S", "body": "B"}
