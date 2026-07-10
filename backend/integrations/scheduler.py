@@ -12,7 +12,7 @@ def start():
         from automatisations.services import (
             evaluer_regles,
             evaluer_taches_surveillance,
-            generer_rapport_quotidien,
+            verifier_rapport_quotidien,
         )
         from core.services import scan_dossier_surveille
 
@@ -23,8 +23,8 @@ def start():
             replace_existing=True,
         )
         scheduler.add_job(
-            generer_rapport_quotidien,
-            trigger=CronTrigger(hour=9, minute=5),
+            verifier_rapport_quotidien,
+            trigger=IntervalTrigger(minutes=5),
             id="rapport_quotidien",
             replace_existing=True,
         )

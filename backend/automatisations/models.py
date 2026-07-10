@@ -22,6 +22,22 @@ class RegleAutomatisation(models.Model):
         return self.nom
 
 
+class AutomatisationConfig(models.Model):
+    """Singleton: global Ollama prompt + daily-report schedule (see get_solo())."""
+
+    prompt_global = models.TextField(blank=True)
+    heure_rapport_quotidien = models.TimeField(default="09:00")
+    dernier_rapport_envoye = models.DateField(null=True, blank=True)
+
+    def __str__(self):
+        return "Configuration automatisations"
+
+    @classmethod
+    def get_solo(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+
 class AlerteEnvoyee(models.Model):
     regle = models.ForeignKey(RegleAutomatisation, on_delete=models.CASCADE, related_name="alertes")
     contract = models.ForeignKey(Contract, on_delete=models.CASCADE, related_name="alertes_envoyees")

@@ -280,6 +280,15 @@ export function MoonIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function GearIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <circle cx="10" cy="10" r="2.5" />
+      <path d="M10 3v1.8M10 15.2V17M17 10h-1.8M4.8 10H3M14.7 5.3l-1.3 1.3M6.6 13.4l-1.3 1.3M14.7 14.7l-1.3-1.3M6.6 6.6L5.3 5.3" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function EyeIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

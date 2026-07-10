@@ -119,8 +119,30 @@ export async function runRegle(id) {
   return data
 }
 
-export async function testRegle(id) {
-  const { data } = await api.post(`/api/automatisations/${id}/test/`)
+export async function testRegle(id, testEmail) {
+  const { data } = await api.post(`/api/automatisations/${id}/test/`, {
+    test_email: testEmail || undefined,
+  })
+  return data
+}
+
+export async function fetchRegleApercu(id) {
+  const { data } = await api.get(`/api/automatisations/${id}/apercu/`)
+  return data
+}
+
+export async function fetchRegleHistorique(id) {
+  const { data } = await api.get(`/api/automatisations/${id}/historique/`)
+  return data
+}
+
+export async function fetchAutomatisationConfig() {
+  const { data } = await api.get('/api/automatisations/config/')
+  return data
+}
+
+export async function saveAutomatisationConfig(payload) {
+  const { data } = await api.put('/api/automatisations/config/', payload)
   return data
 }
 

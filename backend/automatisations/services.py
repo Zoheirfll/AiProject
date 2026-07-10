@@ -7,7 +7,19 @@ from agents.ollama_client import OllamaGenerationError, analyser_document, gener
 from core.models import ExcelImport, MailLog
 from employees.models import Contract, Employee
 
-from .models import AlerteEnvoyee, ExecutionSurveillance, RegleAutomatisation, TacheSurveillance
+from .models import (
+    AlerteEnvoyee,
+    AutomatisationConfig,
+    ExecutionSurveillance,
+    RegleAutomatisation,
+    TacheSurveillance,
+)
+
+DEFAULT_RAPPORT_PROMPT = (
+    "Tu es un assistant RH. Rédige un rapport quotidien professionnel en "
+    "français résumant les informations fournies (contrats qui expirent "
+    "bientôt, imports du jour)."
+)
 
 
 def _resoudre_liste(entries):
@@ -36,11 +48,28 @@ def _substituer_variables(prompt, variables):
     return resultat
 
 
-def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True):
+def _rendre_prompt(regle, employee, contract, jours_restants):
+    """Resolve the prompt to use for this alert: rule override wins, else
+    the global prompt (US-E3-03), with {{...}} variables substituted."""
+    template = regle.prompt_override or AutomatisationConfig.get_solo().prompt_global
+    if not template:
+        return None
+    return _substituer_variables(
+        template,
+        {
+            "nom": f"{employee.prenom} {employee.nom}",
+            "departement": employee.departement or "N/A",
+            "date_fin": contract.date_fin.isoformat(),
+            "jours_restants": str(jours_restants),
+        },
+    )
+
+
+def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_email=None):
     employee = contract.employee
-    destinataires = _resoudre_liste(regle.destinataires)
-    cc = _resoudre_liste(regle.cc)
-    bcc = _resoudre_liste(regle.bcc)
+    destinataires = [test_email] if test_email else _resoudre_liste(regle.destinataires)
+    cc = [] if test_email else _resoudre_liste(regle.cc)
+    bcc = [] if test_email else _resoudre_liste(regle.bcc)
 
     sujet_demande = (
         f"Alerte contrat: {employee.prenom} {employee.nom} — "
@@ -51,17 +80,7 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True):
         employee=employee, regle=regle, sujet_demande=sujet_demande, cc=cc, bcc=bcc,
     )
 
-    prompt_final = None
-    if regle.prompt_override:
-        prompt_final = _substituer_variables(
-            regle.prompt_override,
-            {
-                "nom": f"{employee.prenom} {employee.nom}",
-                "departement": employee.departement or "N/A",
-                "date_fin": contract.date_fin.isoformat(),
-                "jours_restants": str(jours_restants),
-            },
-        )
+    prompt_final = _rendre_prompt(regle, employee, contract, jours_restants)
 
     try:
         result = generate_mail_content(employee, sujet_demande, prompt_final)
@@ -101,6 +120,52 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True):
     return mail_log
 
 
+def apercu_regle(regle):
+    """US-E3-01: preview which employees/contracts would trigger this rule
+    right now, without sending anything. Includes the rendered prompt for
+    the first match (US-E3-03 prompt preview)."""
+    today = timezone.localdate()
+    contracts = Contract.objects.filter(date_fin__isnull=False).select_related("employee")
+    if regle.departements_filtre:
+        contracts = contracts.filter(employee__departement__in=regle.departements_filtre)
+
+    resultats = []
+    for contract in contracts:
+        jours_restants = (contract.date_fin - today).days
+        if jours_restants not in regle.delais_jours:
+            continue
+        deja_envoye = AlerteEnvoyee.objects.filter(
+            regle=regle, contract=contract, delai_jours=jours_restants
+        ).exists()
+        resultats.append(
+            {
+                "employee_id": contract.employee_id,
+                "nom": f"{contract.employee.prenom} {contract.employee.nom}",
+                "departement": contract.employee.departement,
+                "date_fin": contract.date_fin,
+                "jours_restants": jours_restants,
+                "deja_envoye": deja_envoye,
+            }
+        )
+
+    prompt_rendu = None
+    if resultats:
+        premier = next(
+            c for c in contracts
+            if (c.date_fin - today).days == resultats[0]["jours_restants"]
+            and c.employee_id == resultats[0]["employee_id"]
+        )
+        prompt_rendu = _rendre_prompt(regle, premier.employee, premier, resultats[0]["jours_restants"])
+
+    destinataires_resolus = _resoudre_liste(regle.destinataires)
+
+    return {
+        "employes_concernes": resultats,
+        "destinataires_resolus": destinataires_resolus,
+        "prompt_rendu": prompt_rendu,
+    }
+
+
 def evaluer_regles(regle_id=None):
     regles = RegleAutomatisation.objects.filter(actif=True)
     if regle_id is not None:
@@ -133,6 +198,8 @@ def evaluer_regles(regle_id=None):
 
 
 def generer_rapport_quotidien(destinataires=None):
+    """US-E3-02: daily digest, its content generated by Ollama from the
+    global prompt (AutomatisationConfig.prompt_global, or a sane default)."""
     from django.conf import settings
 
     today = timezone.localdate()
@@ -148,8 +215,8 @@ def generer_rapport_quotidien(destinataires=None):
     ]
     resume_contrats = "\n".join(lignes) or "Aucun contrat n'expire dans les 45 prochains jours."
 
-    corps = (
-        f"Rapport quotidien RH — {today.isoformat()}\n\n"
+    contenu = (
+        f"Date: {today.isoformat()}\n\n"
         f"Contrats expirant sous 45 jours:\n{resume_contrats}\n\n"
         f"Imports Excel aujourd'hui: {imports_du_jour.count()}"
     )
@@ -160,11 +227,21 @@ def generer_rapport_quotidien(destinataires=None):
     if not cibles:
         return None
 
-    mail_log = MailLog.objects.create(
-        sujet_demande="Rapport quotidien RH",
-        subject=f"Rapport quotidien RH — {today.isoformat()}",
-        body=corps,
-    )
+    prompt = AutomatisationConfig.get_solo().prompt_global or DEFAULT_RAPPORT_PROMPT
+
+    mail_log = MailLog.objects.create(sujet_demande="Rapport quotidien RH")
+
+    try:
+        analyse = analyser_document(prompt, contenu, forcer_envoi=True)
+    except OllamaGenerationError as exc:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+        mail_log.save()
+        return mail_log
+
+    mail_log.subject = analyse["subject"]
+    mail_log.body = analyse["body"]
+
     try:
         EmailMessage(subject=mail_log.subject, body=mail_log.body, to=cibles).send(fail_silently=False)
         mail_log.status = MailLog.Status.SENT
@@ -174,6 +251,23 @@ def generer_rapport_quotidien(destinataires=None):
         mail_log.erreur = str(exc)
     mail_log.save()
     return mail_log
+
+
+def verifier_rapport_quotidien():
+    """Scheduler tick (every 5 min): send the daily report once per day,
+    at the configured hour (AutomatisationConfig.heure_rapport_quotidien)."""
+    config = AutomatisationConfig.get_solo()
+    now = timezone.localtime()
+
+    if now.time() < config.heure_rapport_quotidien:
+        return None
+    if config.dernier_rapport_envoye == now.date():
+        return None
+
+    resultat = generer_rapport_quotidien()
+    config.dernier_rapport_envoye = now.date()
+    config.save(update_fields=["dernier_rapport_envoye"])
+    return resultat
 
 
 def _lire_contenu_fichier(fichier):

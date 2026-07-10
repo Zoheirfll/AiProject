@@ -3,12 +3,13 @@ import { useQuery } from '@tanstack/react-query'
 import { NavLink, Route, Routes } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import AutomatisationsPage from './pages/AutomatisationsPage'
+import ConfigurationPage from './pages/ConfigurationPage'
 import ImportsPage from './pages/ImportsPage'
 import MailApercuPage from './pages/MailApercuPage'
 import MailsHistoriquePage from './pages/MailsHistoriquePage'
 import SurveillancePage from './pages/SurveillancePage'
 import { fetchEmployees } from './lib/api'
-import { BoltIcon, Card, EyeIcon, GridIcon, HistoryIcon, MailIcon, MoonIcon, Spinner, SunIcon, UploadIcon } from './lib/ui'
+import { BoltIcon, Card, EyeIcon, GearIcon, GridIcon, HistoryIcon, MailIcon, MoonIcon, Spinner, SunIcon, UploadIcon } from './lib/ui'
 import { chartPalette } from './theme'
 import { useTheme } from './lib/useTheme'
 
@@ -19,6 +20,7 @@ const NAV_ITEMS = [
   { to: '/surveillance', label: 'Surveillance', icon: EyeIcon },
   { to: '/mails/apercu', label: 'Aperçu mail', icon: MailIcon },
   { to: '/mails/historique', label: 'Historique mails', icon: HistoryIcon },
+  { to: '/configuration', label: 'Configuration', icon: GearIcon },
 ]
 
 function EmployeesByDepartmentChart() {
@@ -142,6 +144,7 @@ function App() {
           <Route path="/surveillance" element={<SurveillancePage />} />
           <Route path="/mails/apercu" element={<MailApercuPage />} />
           <Route path="/mails/historique" element={<MailsHistoriquePage />} />
+          <Route path="/configuration" element={<ConfigurationPage />} />
         </Routes>
       </main>
     </div>

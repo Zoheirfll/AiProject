@@ -1,6 +1,32 @@
 from rest_framework import serializers
 
-from .models import ExecutionSurveillance, RegleAutomatisation, TacheSurveillance
+from .models import (
+    AlerteEnvoyee,
+    AutomatisationConfig,
+    ExecutionSurveillance,
+    RegleAutomatisation,
+    TacheSurveillance,
+)
+
+
+class AutomatisationConfigSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AutomatisationConfig
+        fields = ["prompt_global", "heure_rapport_quotidien", "dernier_rapport_envoye"]
+        read_only_fields = ["dernier_rapport_envoye"]
+
+
+class AlerteEnvoyeeSerializer(serializers.ModelSerializer):
+    employee_nom = serializers.SerializerMethodField()
+    date_fin = serializers.DateField(source="contract.date_fin", read_only=True)
+
+    class Meta:
+        model = AlerteEnvoyee
+        fields = ["id", "contract", "employee_nom", "date_fin", "delai_jours", "date_envoi"]
+        read_only_fields = fields
+
+    def get_employee_nom(self, obj):
+        return f"{obj.contract.employee.prenom} {obj.contract.employee.nom}"
 
 
 class RegleAutomatisationSerializer(serializers.ModelSerializer):

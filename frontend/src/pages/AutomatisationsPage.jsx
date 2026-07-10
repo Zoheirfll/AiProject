@@ -1,6 +1,14 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { createRegle, deleteRegle, fetchRegles, runRegle, testRegle } from '../lib/api'
+import {
+  createRegle,
+  deleteRegle,
+  fetchRegleApercu,
+  fetchRegleHistorique,
+  fetchRegles,
+  runRegle,
+  testRegle,
+} from '../lib/api'
 import {
   Badge,
   BoltIcon,
@@ -9,6 +17,7 @@ import {
   Checkbox,
   EmptyState,
   Field,
+  HistoryIcon,
   IconButton,
   Input,
   Modal,
@@ -124,34 +133,142 @@ function RuleFormModal({ open, onClose, onSubmit, isPending }) {
   )
 }
 
-function RuleCard({ regle, onRun, onTest, onDelete, isRunning, isTesting }) {
+function ApercuModal({ regleId, onClose }) {
+  const apercuQuery = useQuery({
+    queryKey: ['regle-apercu', regleId],
+    queryFn: () => fetchRegleApercu(regleId),
+    enabled: regleId != null,
+  })
+
+  return (
+    <Modal open={regleId != null} onClose={onClose} title="Aperçu avant activation">
+      {apercuQuery.isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement…</div>
+      ) : (
+        <div className="space-y-4">
+          <div>
+            <h4 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
+              Employés concernés ({apercuQuery.data?.employes_concernes?.length || 0})
+            </h4>
+            {apercuQuery.data?.employes_concernes?.length ? (
+              <ul className="space-y-1 text-sm">
+                {apercuQuery.data.employes_concernes.map((e, i) => (
+                  <li key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
+                    <span>{e.nom} — {e.departement || 'N/A'} — J-{e.jours_restants} ({e.date_fin})</span>
+                    {e.deja_envoye && <Badge tone="neutral">déjà alerté</Badge>}
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-400">Aucun employé concerné pour le moment.</p>
+            )}
+          </div>
+          <div>
+            <h4 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Destinataires résolus</h4>
+            <p className="text-sm text-slate-500">{apercuQuery.data?.destinataires_resolus?.join(', ') || 'aucun'}</p>
+          </div>
+          {apercuQuery.data?.prompt_rendu && (
+            <div>
+              <h4 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Prompt rendu (1er cas)</h4>
+              <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-700/40 dark:text-slate-300">
+                {apercuQuery.data.prompt_rendu}
+              </pre>
+            </div>
+          )}
+        </div>
+      )}
+    </Modal>
+  )
+}
+
+function HistoriqueModal({ regleId, onClose }) {
+  const historiqueQuery = useQuery({
+    queryKey: ['regle-historique', regleId],
+    queryFn: () => fetchRegleHistorique(regleId),
+    enabled: regleId != null,
+  })
+
+  return (
+    <Modal open={regleId != null} onClose={onClose} title="Historique des déclenchements">
+      {historiqueQuery.isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement…</div>
+      ) : historiqueQuery.data?.length === 0 ? (
+        <p className="text-sm text-slate-400">Aucun déclenchement pour cette règle.</p>
+      ) : (
+        <ul className="space-y-1 text-sm">
+          {historiqueQuery.data?.map((a) => (
+            <li key={a.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
+              <span>{a.employee_nom} — J-{a.delai_jours} ({a.date_fin})</span>
+              <span className="text-slate-400">{new Date(a.date_envoi).toLocaleString('fr-FR')}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Modal>
+  )
+}
+
+function TestModal({ regle, onClose, onConfirm, isPending }) {
+  const [testEmail, setTestEmail] = useState('')
+
+  if (!regle) return null
+
+  return (
+    <Modal open={!!regle} onClose={onClose} title={`Tester "${regle.nom}"`}>
+      <div className="space-y-4">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
+          Génère et envoie un mail de test (sans marquer d'alerte comme envoyée). Laissez vide pour utiliser les
+          destinataires réels de la règle.
+        </p>
+        <Field label="Adresse de test (optionnel)">
+          <Input
+            type="email"
+            placeholder="test@example.com"
+            value={testEmail}
+            onChange={(e) => setTestEmail(e.target.value)}
+          />
+        </Field>
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-700">
+          <Button variant="ghost" onClick={onClose}>Annuler</Button>
+          <Button onClick={() => onConfirm(testEmail)} disabled={isPending}>
+            {isPending && <Spinner />} Envoyer le test
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onDelete, isRunning }) {
   return (
     <Card className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-300">
           <BoltIcon />
         </div>
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-slate-900">{regle.nom}</h3>
+            <h3 className="font-semibold text-slate-900 dark:text-slate-50">{regle.nom}</h3>
             <Badge tone={regle.actif ? 'success' : 'neutral'}>{regle.actif ? 'Active' : 'Inactive'}</Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-500">
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
             Délais: {regle.delais_jours.join(', ') || '—'} jour(s)
             {regle.departements_filtre?.length > 0 && <> · Départements: {regle.departements_filtre.join(', ')}</>}
           </p>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
             Destinataires: {regle.destinataires?.join(', ') || 'aucun'}
           </p>
         </div>
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-wrap gap-2">
+        <Button variant="secondary" size="sm" onClick={onOpenApercu}>Aperçu</Button>
+        <Button variant="secondary" size="sm" onClick={onOpenHistorique}>
+          <HistoryIcon className="h-3.5 w-3.5" /> Historique
+        </Button>
         <Button variant="secondary" size="sm" onClick={onRun} disabled={isRunning}>
           {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
         </Button>
-        <Button variant="secondary" size="sm" onClick={onTest} disabled={isTesting}>
-          {isTesting && <Spinner className="h-3.5 w-3.5" />} Tester
-        </Button>
+        <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
         <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
           <TrashIcon />
         </IconButton>
@@ -164,6 +281,9 @@ export default function AutomatisationsPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const [activeId, setActiveId] = useState(null)
+  const [apercuId, setApercuId] = useState(null)
+  const [historiqueId, setHistoriqueId] = useState(null)
+  const [testRegleTarget, setTestRegleTarget] = useState(null)
   const queryClient = useQueryClient()
 
   const reglesQuery = useQuery({ queryKey: ['regles'], queryFn: fetchRegles })
@@ -199,15 +319,23 @@ export default function AutomatisationsPage() {
   })
 
   const testMutation = useMutation({
-    mutationFn: (id) => {
+    mutationFn: ({ id, testEmail }) => {
       setActiveId(id)
-      return testRegle(id)
+      return testRegle(id, testEmail)
     },
-    onSuccess: (data) =>
-      setToast({ message: `Test envoyé — statut: ${data.status === 'SENT' ? 'Envoyé' : data.status}.`, tone: 'success' }),
+    onSuccess: (data) => {
+      setTestRegleTarget(null)
+      setToast({ message: `Test envoyé — statut: ${data.status === 'SENT' ? 'Envoyé' : data.status}.`, tone: 'success' })
+    },
     onError: (err) => setToast({ message: err?.response?.data?.detail || 'Échec du test.', tone: 'error' }),
     onSettled: () => setActiveId(null),
   })
+
+  const confirmRun = (regle) => {
+    if (window.confirm(`Lancer la règle "${regle.nom}" maintenant ? Des mails réels peuvent être envoyés.`)) {
+      runMutation.mutate(regle.id)
+    }
+  }
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-8">
@@ -236,16 +364,28 @@ export default function AutomatisationsPage() {
         </div>
       )}
 
+      <ApercuModal regleId={apercuId} onClose={() => setApercuId(null)} />
+      <HistoriqueModal regleId={historiqueId} onClose={() => setHistoriqueId(null)} />
+      <TestModal
+        regle={testRegleTarget}
+        onClose={() => setTestRegleTarget(null)}
+        onConfirm={(testEmail) => testMutation.mutate({ id: testRegleTarget.id, testEmail })}
+        isPending={testMutation.isPending}
+      />
+
       <div className="grid gap-3">
         {reglesQuery.data?.map((regle) => (
           <RuleCard
             key={regle.id}
             regle={regle}
-            onRun={() => runMutation.mutate(regle.id)}
-            onTest={() => testMutation.mutate(regle.id)}
-            onDelete={() => deleteMutation.mutate(regle.id)}
+            onRun={() => confirmRun(regle)}
+            onOpenTest={() => setTestRegleTarget(regle)}
+            onOpenApercu={() => setApercuId(regle.id)}
+            onOpenHistorique={() => setHistoriqueId(regle.id)}
+            onDelete={() => {
+              if (window.confirm(`Supprimer la règle "${regle.nom}" ?`)) deleteMutation.mutate(regle.id)
+            }}
             isRunning={runMutation.isPending && activeId === regle.id}
-            isTesting={testMutation.isPending && activeId === regle.id}
           />
         ))}
 
