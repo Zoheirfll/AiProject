@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 from django.conf import settings
 from django.core.mail import get_connection
+from django.http import HttpResponse
 from django.utils import timezone
 from rest_framework.generics import ListAPIView
 from rest_framework.parsers import MultiPartParser
@@ -15,7 +16,22 @@ from employees.models import Employee
 
 from .models import IMPORT_MAPPING_FIELDS, ExcelImport, ImportConfig, MailLog
 from .serializers import ExcelImportSerializer, MailLogSerializer
-from .services import parse_employee_excel, parse_mail_masse_excel, send_mail_log
+from .services import build_import_template, parse_employee_excel, parse_mail_masse_excel, send_mail_log
+
+
+class ImportModeleView(APIView):
+    """Downloadable Excel template — recognized columns + two free-form
+    example columns, so it's obvious the sheet isn't limited to a fixed
+    schema (see core.services.build_import_template)."""
+
+    def get(self, request):
+        buffer = build_import_template()
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = 'attachment; filename="modele_import_employes.xlsx"'
+        return response
 
 
 class HealthView(APIView):

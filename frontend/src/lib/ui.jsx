@@ -235,6 +235,15 @@ export function UploadIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function DownloadIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M10 4v9M6.5 9.5L10 13l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 14v1.5a1.5 1.5 0 001.5 1.5h9a1.5 1.5 0 001.5-1.5V14" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function GridIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">

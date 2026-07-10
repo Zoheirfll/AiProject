@@ -1,9 +1,11 @@
 import datetime
+import io
 import os
 import re
 import shutil
 
 import openpyxl
+from openpyxl.styles import Font
 from django.core.files import File
 from django.core.mail import EmailMessage, EmailMultiAlternatives
 
@@ -298,3 +300,52 @@ def scan_dossier_surveille():
                 "lignes_importees": excel_import.lignes_importees,
             }
         )
+
+
+TEMPLATE_COLUMNS = [
+    "matricule", "nom", "prenom", "email", "departement", "poste",
+    "categorie", "num_contrat", "date_embauche", "date_fin_contrat",
+]
+
+TEMPLATE_EXAMPLE_ROWS = [
+    [
+        "M001", "Belhadj", "Amina", "amina.belhadj@example.com", "IT", "Développeuse",
+        "Cadre", "C-2024-001", "15/01/2024", "15/01/2026",
+        # Free-form columns: anything beyond the system fields above is
+        # imported as-is (Employee.donnees_supplementaires) — HR data isn't
+        # limited to contracts. These two are just examples, not required.
+        "12", "Sécurité informatique (2026-03)",
+    ],
+    [
+        "M002", "Kaci", "Yanis", "", "RH", "Chargé de recrutement",
+        "", "", "01/09/2023", "",
+        "3", "Management (2025-11)",
+    ],
+]
+
+TEMPLATE_EXTRA_HEADERS = ["jours_conges_restants", "derniere_formation"]
+
+
+def build_import_template():
+    """Build the downloadable Excel template (US: 'donnez-moi un modèle à
+    envoyer') — the recognized system columns plus two example free-form
+    columns, to make it obvious the sheet isn't limited to a fixed schema."""
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Employés"
+
+    headers = TEMPLATE_COLUMNS + TEMPLATE_EXTRA_HEADERS
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for row in TEMPLATE_EXAMPLE_ROWS:
+        sheet.append(row)
+
+    for i, header in enumerate(headers, start=1):
+        sheet.column_dimensions[sheet.cell(row=1, column=i).column_letter].width = max(14, len(header) + 2)
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return buffer

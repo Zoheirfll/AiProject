@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { fetchCsrf, fetchMe, login as apiLogin, logout as apiLogout } from './api'
 
 const AuthContext = createContext(null)
@@ -6,6 +7,7 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     // Always ensure a fresh csrftoken cookie exists — needed for logout (and
@@ -24,6 +26,12 @@ export function AuthProvider({ children }) {
   const login = async (username, password) => {
     await fetchCsrf()
     const data = await apiLogin(username, password)
+    // A previous user's queries (automatisations, surveillance, dashboard...)
+    // must never leak into this session — React Query's cache is keyed by
+    // query name, not by user, so without this a second account logging in
+    // in the same tab would briefly (or persistently) see the prior user's
+    // cached data instead of their own scoped results.
+    queryClient.clear()
     setUser(data)
     return data
   }
@@ -35,6 +43,7 @@ export function AuthProvider({ children }) {
       // Always clear client-side state, even if the server call failed
       // (expired session, CSRF hiccup, network) — the user still expects
       // to be logged out locally and sent back to the login page.
+      queryClient.clear()
       setUser(null)
     }
   }

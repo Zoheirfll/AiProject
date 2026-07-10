@@ -6,6 +6,7 @@ from .views import (
     ImportDeleteView,
     ImportHistoryView,
     ImportMappingView,
+    ImportModeleView,
     ImportUploadView,
     MailApercuMasseView,
     MailApercuView,
@@ -20,6 +21,7 @@ app_name = "core"
 urlpatterns = [
     path("core/health/", HealthView.as_view(), name="health"),
     path("imports/upload/", ImportUploadView.as_view(), name="imports-upload"),
+    path("imports/modele/", ImportModeleView.as_view(), name="imports-modele"),
     path("imports/historique/", ImportHistoryView.as_view(), name="imports-historique"),
     path("imports/<int:pk>/", ImportDeleteView.as_view(), name="imports-delete"),
     path("imports/mapping/", ImportMappingView.as_view(), name="imports-mapping"),
