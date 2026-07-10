@@ -33,14 +33,15 @@ Services :
 
 L'application nécessite un compte pour se connecter — pas d'accès anonyme (l'API rejette toute requête non authentifiée en dehors des endpoints `/api/*/health/` et `/api/auth/*`). Deux rôles : **DRH** (accès complet, y compris `/configuration` et les suppressions) et **Chargé RH** (création/exécution/test, sans configuration globale ni suppression).
 
-Créer un premier compte :
+Créer le tout premier compte (DRH), en ligne de commande — nécessaire une seule fois, avant qu'un DRH existe dans l'interface :
 
 ```bash
 docker compose exec backend python manage.py create_hr_user drh drh@example.com --password "un-mot-de-passe-fort" --role DRH
-docker compose exec backend python manage.py create_hr_user charge_rh charge@example.com --password "un-mot-de-passe-fort" --role CHARGE_RH
 ```
 
-Puis se connecter sur http://localhost:5173/login. La session utilise un cookie httponly (pas de token en `localStorage`) protégé par CSRF ; 5 échecs de connexion pour un même nom d'utilisateur en 15 minutes bloquent temporairement les tentatives suivantes.
+Ensuite, tous les autres comptes (DRH ou Chargé RH) se créent depuis l'interface, page **Utilisateurs** (visible uniquement pour un DRH) — plus besoin de la ligne de commande au quotidien. Cette page permet aussi de désactiver ou supprimer un compte (un DRH ne peut pas se désactiver/supprimer lui-même, pour éviter de bloquer l'accès si c'est le seul DRH).
+
+Se connecter sur http://localhost:5173/login. La session utilise un cookie httponly (pas de token en `localStorage`) protégé par CSRF ; 5 échecs de connexion pour un même nom d'utilisateur en 15 minutes bloquent temporairement les tentatives suivantes.
 
 ## Configuration SMTP (Gmail)
 

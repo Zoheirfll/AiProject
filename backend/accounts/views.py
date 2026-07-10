@@ -3,12 +3,14 @@ from datetime import timedelta
 from django.contrib.auth import authenticate, login, logout
 from django.middleware.csrf import get_token
 from django.utils import timezone
+from rest_framework.generics import ListCreateAPIView, RetrieveUpdateDestroyAPIView
 from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import LoginAttempt
-from .serializers import UserSerializer
+from .models import LoginAttempt, User
+from .permissions import IsDRH
+from .serializers import UserCreateSerializer, UserSerializer
 
 MAX_TENTATIVES = 5
 FENETRE_VERROUILLAGE = timedelta(minutes=15)
@@ -66,3 +68,41 @@ class MeView(APIView):
 
     def get(self, request):
         return Response(UserSerializer(request.user).data)
+
+
+class UserListCreateView(ListCreateAPIView):
+    """DRH-only: create/list accounts (an alternative to the create_hr_user
+    management command, for day-to-day use without shell access)."""
+
+    permission_classes = [IsDRH]
+    queryset = User.objects.all().order_by("username")
+
+    def get_serializer_class(self):
+        return UserCreateSerializer if self.request.method == "POST" else UserSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = UserCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+        return Response(UserSerializer(user).data, status=201)
+
+
+class UserDetailView(RetrieveUpdateDestroyAPIView):
+    """DRH-only: toggle is_active/role or remove an account. A DRH can't
+    deactivate or delete their own account (would lock everyone out if
+    they're the only DRH)."""
+
+    permission_classes = [IsDRH]
+    queryset = User.objects.all()
+    serializer_class = UserSerializer
+    http_method_names = ["get", "patch", "delete"]
+
+    def patch(self, request, *args, **kwargs):
+        if int(kwargs["pk"]) == request.user.id and request.data.get("is_active") is False:
+            return Response({"detail": "Vous ne pouvez pas désactiver votre propre compte."}, status=400)
+        return super().patch(request, *args, **kwargs)
+
+    def delete(self, request, *args, **kwargs):
+        if int(kwargs["pk"]) == request.user.id:
+            return Response({"detail": "Vous ne pouvez pas supprimer votre propre compte."}, status=400)
+        return super().delete(request, *args, **kwargs)

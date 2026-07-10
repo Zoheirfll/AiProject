@@ -29,5 +29,26 @@ export function describeApiError(err, fallback = 'Une erreur est survenue.') {
   if (!err?.response) {
     return 'Impossible de contacter le serveur. Vérifiez votre connexion.'
   }
+  const fieldMessage = describeFieldErrors(err)
+  if (fieldMessage) return fieldMessage
   return fallback
+}
+
+// DRF serializer validation errors come back as {field: ["msg", ...], ...}
+// with no top-level `detail` at all — e.g. {"password": ["Ce mot de passe
+// est trop courant."]}. These are our own serializers' messages (already
+// French, safe to show), so surface them instead of a useless generic
+// fallback. Returns null if the shape doesn't look like field errors.
+function describeFieldErrors(err) {
+  const data = err?.response?.data
+  if (!data || typeof data !== 'object' || Array.isArray(data)) return null
+
+  const parts = []
+  for (const [field, messages] of Object.entries(data)) {
+    if (field === 'detail' || !Array.isArray(messages)) continue
+    for (const message of messages) {
+      if (typeof message === 'string') parts.push(message)
+    }
+  }
+  return parts.length > 0 ? parts.join(' ') : null
 }

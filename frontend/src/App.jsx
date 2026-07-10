@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage'
 import MailApercuPage from './pages/MailApercuPage'
 import MailsHistoriquePage from './pages/MailsHistoriquePage'
 import SurveillancePage from './pages/SurveillancePage'
+import UtilisateursPage from './pages/UtilisateursPage'
 import { useAuth } from './lib/AuthContext'
 import { ProtectedRoute } from './lib/ProtectedRoute'
 import {
@@ -20,6 +21,7 @@ import {
   MoonIcon,
   SunIcon,
   UploadIcon,
+  UsersIcon,
 } from './lib/ui'
 import { useTheme } from './lib/useTheme'
 
@@ -30,6 +32,7 @@ const NAV_ITEMS = [
   { to: '/surveillance', label: 'Surveillance', icon: EyeIcon },
   { to: '/mails/apercu', label: 'Aperçu mail', icon: MailIcon },
   { to: '/mails/historique', label: 'Historique mails', icon: HistoryIcon },
+  { to: '/utilisateurs', label: 'Utilisateurs', icon: UsersIcon, drhOnly: true },
   { to: '/configuration', label: 'Configuration', icon: GearIcon, drhOnly: true },
 ]
 
@@ -124,6 +127,14 @@ function AppShell() {
             element={
               <ProtectedRoute drhOnly>
                 <ConfigurationPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/utilisateurs"
+            element={
+              <ProtectedRoute drhOnly>
+                <UtilisateursPage />
               </ProtectedRoute>
             }
           />
