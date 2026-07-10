@@ -25,6 +25,8 @@ class MailLogSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "employee",
+            "destinataire_nom",
+            "destinataire_email",
             "regle",
             "sujet_demande",
             "subject",

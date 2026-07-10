@@ -21,6 +21,33 @@ class MailLogModelTests(TestCase):
         self.assertIsNone(mail_log.regle)
 
 
+class MailApercuAdHocApiTests(APITestCase):
+    @patch("core.views.generate_mail_content")
+    def test_apercu_without_employee_uses_destinataire_email(self, mock_generate):
+        mock_generate.return_value = {"subject": "S", "body": "B"}
+
+        response = self.client.post(
+            "/api/mails/apercu/",
+            {
+                "destinataire_nom": "Fournisseur Test",
+                "destinataire_email": "fournisseur@example.com",
+                "sujet_demande": "Demande de devis",
+            },
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.data["status"], "DRAFT")
+        self.assertIsNone(response.data["employee"])
+        self.assertEqual(response.data["destinataire_email"], "fournisseur@example.com")
+
+    def test_apercu_without_employee_or_destinataire_email_fails(self):
+        response = self.client.post(
+            "/api/mails/apercu/", {"sujet_demande": "Demande de devis"}, format="json",
+        )
+        self.assertEqual(response.status_code, 400)
+
+
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
 class MailEnvoyerApiTests(APITestCase):
     def test_envoyer_sends_edited_content(self):
@@ -42,6 +69,23 @@ class MailEnvoyerApiTests(APITestCase):
         self.assertEqual(len(mail.outbox), 1)
         self.assertEqual(mail.outbox[0].subject, "Sujet édité")
         self.assertEqual(mail.outbox[0].to, ["ali@example.com"])
+
+    def test_envoyer_sends_to_ad_hoc_destinataire_without_employee(self):
+        mail_log = MailLog.objects.create(
+            destinataire_nom="Fournisseur Test",
+            destinataire_email="fournisseur@example.com",
+            sujet_demande="Devis",
+            subject="Sujet",
+            body="Corps",
+        )
+
+        response = self.client.post(
+            "/api/mails/envoyer/", {"mail_log_id": mail_log.id}, format="json",
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data["status"], "SENT")
+        self.assertEqual(mail.outbox[0].to, ["fournisseur@example.com"])
 
     def test_envoyer_requires_employee_email(self):
         employee = Employee.objects.create(matricule="M011", nom="Sadi", prenom="Lina", email="")

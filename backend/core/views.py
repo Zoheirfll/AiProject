@@ -1,3 +1,5 @@
+from types import SimpleNamespace
+
 from django.conf import settings
 from django.core.mail import EmailMessage, get_connection
 from django.utils import timezone
@@ -56,23 +58,43 @@ class ImportHistoryView(ListAPIView):
 class MailApercuView(APIView):
     def post(self, request):
         employee_id = request.data.get("employee_id")
+        destinataire_nom = (request.data.get("destinataire_nom") or "").strip()
+        destinataire_email = (request.data.get("destinataire_email") or "").strip()
         sujet_demande = request.data.get("sujet_demande")
         prompt_override = request.data.get("prompt_override")
 
-        if not employee_id or not sujet_demande:
+        if not sujet_demande:
+            return Response({"detail": "sujet_demande est requis."}, status=400)
+
+        if not employee_id and not destinataire_email:
             return Response(
-                {"detail": "employee_id et sujet_demande sont requis."}, status=400
+                {"detail": "employee_id ou destinataire_email est requis."}, status=400
             )
 
-        try:
-            employee = Employee.objects.get(pk=employee_id)
-        except Employee.DoesNotExist:
-            return Response({"detail": "Employé introuvable."}, status=404)
+        employee = None
+        if employee_id:
+            try:
+                employee = Employee.objects.get(pk=employee_id)
+            except Employee.DoesNotExist:
+                return Response({"detail": "Employé introuvable."}, status=404)
+            contact = employee
+        else:
+            contact = SimpleNamespace(
+                prenom=destinataire_nom or destinataire_email,
+                nom="",
+                poste=None,
+                departement=None,
+            )
 
-        mail_log = MailLog.objects.create(employee=employee, sujet_demande=sujet_demande)
+        mail_log = MailLog.objects.create(
+            employee=employee,
+            destinataire_nom=destinataire_nom,
+            destinataire_email=destinataire_email,
+            sujet_demande=sujet_demande,
+        )
 
         try:
-            result = generate_mail_content(employee, sujet_demande, prompt_override)
+            result = generate_mail_content(contact, sujet_demande, prompt_override)
             mail_log.subject = result["subject"]
             mail_log.body = result["body"]
             mail_log.status = MailLog.Status.DRAFT
@@ -103,9 +125,9 @@ class MailEnvoyerView(APIView):
         if body:
             mail_log.body = body
 
-        destinataire = mail_log.employee.email if mail_log.employee else None
+        destinataire = mail_log.email_destinataire
         if not destinataire:
-            return Response({"detail": "L'employé n'a pas d'adresse email."}, status=400)
+            return Response({"detail": "Aucune adresse email de destinataire."}, status=400)
 
         try:
             EmailMessage(

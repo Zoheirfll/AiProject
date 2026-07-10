@@ -41,6 +41,8 @@ class MailLog(models.Model):
         blank=True,
         related_name="mails",
     )
+    destinataire_nom = models.CharField(max_length=200, blank=True)
+    destinataire_email = models.EmailField(blank=True)
     regle = models.ForeignKey(
         "automatisations.RegleAutomatisation",
         on_delete=models.SET_NULL,
@@ -64,3 +66,15 @@ class MailLog(models.Model):
 
     def __str__(self):
         return f"Mail {self.id} - {self.status}"
+
+    @property
+    def email_destinataire(self):
+        if self.employee:
+            return self.employee.email
+        return self.destinataire_email
+
+    @property
+    def nom_destinataire(self):
+        if self.employee:
+            return f"{self.employee.prenom} {self.employee.nom}"
+        return self.destinataire_nom
