@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
-import { fetchEmployees, generateMailApercu } from '../lib/api'
+import { envoyerMail, fetchEmployees, generateMailApercu } from '../lib/api'
 
 export default function MailApercuPage() {
   const [employeeId, setEmployeeId] = useState('')
   const [sujetDemande, setSujetDemande] = useState('')
+  const [editedSubject, setEditedSubject] = useState('')
+  const [editedBody, setEditedBody] = useState('')
 
   const employeesQuery = useQuery({
     queryKey: ['employees'],
@@ -15,28 +17,51 @@ export default function MailApercuPage() {
     mutationFn: generateMailApercu,
   })
 
+  const result = apercuMutation.data
+
+  useEffect(() => {
+    if (result?.status === 'DRAFT') {
+      setEditedSubject(result.subject)
+      setEditedBody(result.body)
+    }
+  }, [result])
+
+  const envoyerMutation = useMutation({
+    mutationFn: envoyerMail,
+  })
+
   const handleSubmit = (e) => {
     e.preventDefault()
     if (!employeeId || !sujetDemande) return
+    envoyerMutation.reset()
     apercuMutation.mutate({ employeeId, sujetDemande })
   }
 
-  const result = apercuMutation.data
+  const handleRegenerer = () => {
+    if (!employeeId || !sujetDemande) return
+    envoyerMutation.reset()
+    apercuMutation.mutate({ employeeId, sujetDemande })
+  }
+
+  const handleEnvoyer = () => {
+    if (!result?.id) return
+    envoyerMutation.mutate({ mailLogId: result.id, subject: editedSubject, body: editedBody })
+  }
 
   return (
-    <div className="max-w-3xl mx-auto p-8 space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6 p-8">
       <div>
         <h1 className="text-2xl font-semibold text-gray-900">Aperçu mail (IA)</h1>
-        <p className="text-gray-500 mt-1">
-          Génère un brouillon de mail RH via le modèle Ollama local, à relire avant envoi.
+        <p className="mt-1 text-gray-500">
+          Génère un brouillon de mail RH via le modèle Ollama local, à relire et modifier avant envoi.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Employé</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Employé</label>
           <select
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             value={employeeId}
             onChange={(e) => setEmployeeId(e.target.value)}
           >
@@ -50,10 +75,10 @@ export default function MailApercuPage() {
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Sujet demandé</label>
+          <label className="mb-1 block text-sm font-medium text-gray-700">Sujet demandé</label>
           <input
             type="text"
-            className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
+            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
             placeholder="Ex: rappel de renouvellement de contrat"
             value={sujetDemande}
             onChange={(e) => setSujetDemande(e.target.value)}
@@ -63,28 +88,66 @@ export default function MailApercuPage() {
         <button
           type="submit"
           disabled={apercuMutation.isPending || !employeeId || !sujetDemande}
-          className="bg-gray-900 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700 disabled:opacity-50"
+          className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
         >
           {apercuMutation.isPending ? 'Génération…' : 'Générer un aperçu'}
         </button>
       </form>
 
       {apercuMutation.isError && (
-        <p className="text-red-600 text-sm">
+        <p className="text-sm text-red-600">
           {apercuMutation.error?.response?.data?.detail || 'Erreur lors de la génération.'}
         </p>
       )}
 
       {result && result.status === 'FAILED' && (
-        <p className="text-red-600 text-sm">{result.erreur}</p>
+        <p className="text-sm text-red-600">{result.erreur}</p>
       )}
 
       {result && result.status === 'DRAFT' && (
-        <div className="border border-gray-200 rounded-lg p-4 space-y-2">
-          <p className="text-sm text-gray-500">Objet</p>
-          <p className="font-medium text-gray-900">{result.subject}</p>
-          <p className="text-sm text-gray-500 mt-3">Corps</p>
-          <p className="whitespace-pre-wrap text-gray-800">{result.body}</p>
+        <div className="space-y-3 rounded-lg border border-gray-200 bg-white p-5 shadow-sm">
+          <div>
+            <label className="mb-1 block text-sm text-gray-500">Objet</label>
+            <input
+              className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              value={editedSubject}
+              onChange={(e) => setEditedSubject(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm text-gray-500">Corps</label>
+            <textarea
+              className="min-h-[180px] w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:border-gray-900 focus:outline-none focus:ring-1 focus:ring-gray-900"
+              value={editedBody}
+              onChange={(e) => setEditedBody(e.target.value)}
+            />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={handleRegenerer}
+              disabled={apercuMutation.isPending}
+              className="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            >
+              {apercuMutation.isPending ? 'Régénération…' : 'Régénérer via Ollama'}
+            </button>
+            <button
+              onClick={handleEnvoyer}
+              disabled={envoyerMutation.isPending}
+              className="rounded-md bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-700 disabled:opacity-50"
+            >
+              {envoyerMutation.isPending ? 'Envoi…' : 'Envoyer'}
+            </button>
+          </div>
+          {envoyerMutation.isSuccess && (
+            <p className="text-sm text-emerald-700">
+              Statut: {envoyerMutation.data.status === 'SENT' ? 'Envoyé avec succès.' : envoyerMutation.data.status}
+            </p>
+          )}
+          {envoyerMutation.isError && (
+            <p className="text-sm text-red-600">
+              {envoyerMutation.error?.response?.data?.detail || "Échec de l'envoi."}
+            </p>
+          )}
         </div>
       )}
     </div>
