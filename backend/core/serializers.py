@@ -25,12 +25,16 @@ class MailLogSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "employee",
+            "regle",
             "sujet_demande",
             "subject",
             "body",
+            "format",
+            "cc",
+            "bcc",
             "status",
             "erreur",
             "created_at",
             "sent_at",
         ]
-        read_only_fields = ["subject", "body", "status", "erreur", "created_at", "sent_at"]
+        read_only_fields = ["status", "erreur", "created_at", "sent_at"]

@@ -30,8 +30,19 @@ class MailLog(models.Model):
         SENT = "SENT", "Envoyé"
         FAILED = "FAILED", "Échec"
 
+    class Format(models.TextChoices):
+        TEXTE = "TEXTE", "Texte"
+        HTML = "HTML", "HTML"
+
     employee = models.ForeignKey(
         "employees.Employee",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="mails",
+    )
+    regle = models.ForeignKey(
+        "automatisations.RegleAutomatisation",
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -40,6 +51,9 @@ class MailLog(models.Model):
     sujet_demande = models.CharField(max_length=255)
     subject = models.CharField(max_length=255, blank=True)
     body = models.TextField(blank=True)
+    format = models.CharField(max_length=10, choices=Format.choices, default=Format.TEXTE)
+    cc = models.JSONField(default=list, blank=True)
+    bcc = models.JSONField(default=list, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.DRAFT)
     erreur = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
