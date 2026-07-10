@@ -90,8 +90,18 @@ DOCUMENT_ANALYSIS_PROMPT_TEMPLATE = (
     "ENVOYER: OUI ou NON\n"
     "SUJET: <objet du mail>\n"
     "CORPS:\n<corps du mail expliquant ce qui a été trouvé>\n\n"
+    "{regle_envoi}"
+)
+
+REGLE_ENVOI_ANOMALIE = (
     "Mets ENVOYER: NON uniquement si rien d'anormal ou de notable n'a été trouvé "
     "et qu'aucun mail n'est nécessaire."
+)
+
+REGLE_ENVOI_TOUJOURS = (
+    "Un rapport doit TOUJOURS être envoyé : mets ENVOYER: OUI dans tous les cas, "
+    "et rédige SUJET/CORPS pour résumer le contenu du document même si rien "
+    "d'anormal n'a été trouvé."
 )
 
 
@@ -101,9 +111,14 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False):
     Returns {"envoyer": bool, "subject": str, "body": str}. Raises
     OllamaGenerationError on failure (model missing, Ollama unreachable,
     unparsable response). When forcer_envoi is True, "envoyer" is always
-    True regardless of what the model decided (used for periodic digests).
+    True regardless of what the model decided (used for periodic digests) —
+    the prompt is also adjusted so the model actually drafts SUJET/CORPS
+    instead of a bare "ENVOYER: NON" it wouldn't otherwise expand on.
     """
-    system_prompt = DOCUMENT_ANALYSIS_PROMPT_TEMPLATE.format(consigne=prompt_analyse)
+    regle_envoi = REGLE_ENVOI_TOUJOURS if forcer_envoi else REGLE_ENVOI_ANOMALIE
+    system_prompt = DOCUMENT_ANALYSIS_PROMPT_TEMPLATE.format(
+        consigne=prompt_analyse, regle_envoi=regle_envoi
+    )
     # Local CPU inference is slow on modest hardware — keep the input small
     # and cap the output length so a single analysis finishes in a
     # reasonable time instead of running for several minutes.
