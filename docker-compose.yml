@@ -90,6 +90,10 @@ services:
       N8N_TEMPLATES_ENABLED: "false"
       N8N_PERSONALIZATION_ENABLED: "false"
       N8N_HIRING_BANNER_ENABLED: "false"
+      # n8n >=1.x blocks $env access inside node expressions by default
+      # (security hardening) — the workflow templates below need it to
+      # reach GRH_AUTO_URL, so allow it explicitly.
+      N8N_BLOCK_ENV_ACCESS_IN_NODE: "false"
       # US-E7-03: reachable by the workflow templates in n8n/workflows/ to
       # call GRH-Auto's /api/n8n/* endpoints — service name on the same
       # Docker Compose network, not localhost.
