@@ -74,7 +74,7 @@ n8n est accessible en HTTP simple (pas HTTPS) sur `http://<IP-de-ce-PC>:5678` de
 
    Pour vérifier la règle : `Get-NetFirewallRule -DisplayName "GRH-Auto n8n (LAN)"`. Pour la retirer : `Remove-NetFirewallRule -DisplayName "GRH-Auto n8n (LAN)"`.
 
-3. **Authentification n8n** : déjà activée par défaut (`N8N_BASIC_AUTH_ACTIVE=true` dans `.env`) — un identifiant/mot de passe est demandé à la connexion. Changer `N8N_BASIC_AUTH_PASSWORD` dans `.env` avant tout usage réel.
+3. **Authentification n8n** : `N8N_BASIC_AUTH_ACTIVE`/`N8N_BASIC_AUTH_PASSWORD` dans `.env` sont ignorés par les versions récentes de n8n (≥ 1.x) — n8n gère désormais ses propres comptes utilisateur (email + mot de passe), configurés via un écran de création de compte au tout premier accès à http://localhost:5678 (pas de compte par défaut). Si un compte "propriétaire" existe déjà mais que les identifiants sont perdus, le réinitialiser avec `docker compose exec n8n n8n user-management:reset` (supprime le compte actuel, permet d'en recréer un — sans toucher aux workflows déjà importés).
 
 `docker-compose.yml` désactive aussi la télémétrie n8n et les vérifications de mise à jour (`N8N_DIAGNOSTICS_ENABLED`, `N8N_VERSION_NOTIFICATIONS_ENABLED`, etc. à `false`) pour qu'aucun appel sortant vers n8n.io ne se produise.
 
