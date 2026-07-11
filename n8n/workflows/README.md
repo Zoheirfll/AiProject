@@ -13,11 +13,17 @@ Dans n8n : **Workflows → Import from File**, choisir un des `.json` ci-dessous
 
 ## Configuration requise (une seule fois)
 
-1. **Credential partagé** : dans n8n, créer une credential de type **Header Auth** nommée exactement `GRH-Auto API Token` :
-   - Header name : `Authorization`
-   - Header value : `Bearer <la valeur de N8N_API_TOKEN dans .env>`
+1. **Credential(s) Header Auth** : les tokens ne sont plus un secret global unique — chaque `N8nApiToken` (créé par un DRH dans l'admin Django, `/admin/n8n_integration/n8napitoken/`) n'a que les scopes dont son workflow a besoin, et peut être révoqué (`actif=False`) indépendamment des autres sans casser le reste.
 
-   Les 4 workflows référencent cette credential par son nom — un seul endroit à mettre à jour si le token change.
+   Une migration a automatiquement créé un token « Token par défaut (migration E7) » avec les 4 scopes, à partir de l'ancienne valeur `N8N_API_TOKEN` — la credential `GRH-Auto API Token` déjà configurée dans n8n continue donc de fonctionner sans rien changer. Pour un cloisonnement réel par workflow, créez un token dédié par workflow (voir scopes requis ci-dessous) et une credential Header Auth distincte pointant dessus :
+   - Header name : `Authorization`
+   - Header value : `Bearer <valeur du token créé dans l'admin Django>`
+
+   Scopes requis par template :
+   - `alerte_contrats_expirants.json` → `contrats:read`, `mails:send`
+   - `rapport_quotidien.json` → `employes:read`, `contrats:read`, `mails:send`
+   - `notification_nouvel_employe.json` → `mails:send`
+   - `escalade_drh_contrat_non_renouvele.json` → `contrats:read`, `mails:send`
 
 2. **Variable d'environnement** `GRH_AUTO_URL` accessible par n8n (déjà le cas dans `docker-compose.yml` puisque n8n et le backend Django sont sur le même réseau Docker) :
    ```
@@ -29,12 +35,12 @@ Dans n8n : **Workflows → Import from File**, choisir un des `.json` ci-dessous
 
 ## Endpoints Django utilisés
 
-Tous sous `/api/n8n/*`, protégés par le token statique (voir `backend/n8n_integration/`) :
+Tous sous `/api/n8n/*`, protégés par un token scopé (`N8nApiToken` + `HasN8nScope`, voir `backend/n8n_integration/`) — chaque endpoint exige un scope précis, pas juste un token valide :
 
-- `GET /api/n8n/employes/` — employés actifs
-- `GET /api/n8n/contrats-expirants/?jours=N` — contrats expirant sous N jours
-- `POST /api/n8n/mails/envoyer/` — génère (Ollama) et envoie un mail en un seul appel
-- `POST /api/n8n/logs/` — enregistre un événement libre
+- `GET /api/n8n/employes/` — employés actifs (scope `employes:read`)
+- `GET /api/n8n/contrats-expirants/?jours=N` — contrats expirant sous N jours (scope `contrats:read`)
+- `POST /api/n8n/mails/envoyer/` — génère (Ollama) et envoie un mail en un seul appel (scope `mails:send`)
+- `POST /api/n8n/logs/` — enregistre un événement libre (scope `logs:write`)
 - `GET /api/n8n/health/` — health check (sans token)
 
-Chaque appel (succès ou refusé) est automatiquement journalisé dans `N8nApiLog` (visible dans l'admin Django, `/admin/n8n_integration/n8napilog/`).
+Chaque appel (succès ou refusé) est automatiquement journalisé dans `N8nApiLog`, avec le token utilisé (visible dans l'admin Django, `/admin/n8n_integration/n8napilog/`).

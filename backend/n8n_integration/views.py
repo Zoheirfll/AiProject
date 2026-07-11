@@ -11,8 +11,8 @@ from core.services import send_mail_log
 from employees.models import Contract, Employee
 from employees.serializers import EmployeeSerializer
 
-from .models import N8nApiLog
-from .permissions import HasN8nToken
+from .models import N8nApiLog, N8nApiToken
+from .permissions import HasN8nScope
 from .serializers import ContratExpirantSerializer
 
 
@@ -24,14 +24,18 @@ class HealthView(APIView):
 
 
 class N8nBaseView(APIView):
-    """Base for every /api/n8n/* endpoint: static-token auth instead of the
+    """Base for every /api/n8n/* endpoint: scoped-token auth instead of the
     session/CSRF the rest of the app uses (n8n is a machine caller, not a
     browser), and automatic call logging (US-E7-02 'logs de tous les
     appels n8n dans Django') — every request/response is recorded as an
-    N8nApiLog regardless of which subclass handles it."""
+    N8nApiLog regardless of which subclass handles it.
+
+    Subclasses set `required_scope = N8nApiToken.Scope.XXX` so a token
+    minted for one workflow can be limited to just what it needs."""
 
     authentication_classes = []
-    permission_classes = [HasN8nToken]
+    permission_classes = [HasN8nScope]
+    required_scope = None
 
     def finalize_response(self, request, response, *args, **kwargs):
         response = super().finalize_response(request, response, *args, **kwargs)
@@ -45,6 +49,7 @@ class N8nBaseView(APIView):
                 status_code=response.status_code,
                 ip_address=request.META.get("REMOTE_ADDR"),
                 payload_resume=payload,
+                token=getattr(request, "n8n_token", None),
             )
         except Exception:  # noqa: BLE001
             pass  # logging must never break the actual n8n call
@@ -54,6 +59,7 @@ class N8nBaseView(APIView):
 class N8nEmployesView(N8nBaseView, ListAPIView):
     """GET /api/n8n/employes/ — active employees (optional ?departement=)."""
 
+    required_scope = N8nApiToken.Scope.EMPLOYES_READ
     serializer_class = EmployeeSerializer
 
     def get_queryset(self):
@@ -67,6 +73,7 @@ class N8nEmployesView(N8nBaseView, ListAPIView):
 class N8nContratsExpirantsView(N8nBaseView, ListAPIView):
     """GET /api/n8n/contrats-expirants/?jours=30 — contracts expiring within N days (default 30)."""
 
+    required_scope = N8nApiToken.Scope.CONTRATS_READ
     serializer_class = ContratExpirantSerializer
 
     def get_queryset(self):
@@ -83,6 +90,8 @@ class N8nContratsExpirantsView(N8nBaseView, ListAPIView):
 class N8nEnvoyerMailView(N8nBaseView):
     """POST /api/n8n/mails/envoyer/ — generate (Ollama) and immediately send
     a mail in one call (n8n workflows don't do a two-step preview/send)."""
+
+    required_scope = N8nApiToken.Scope.MAILS_SEND
 
     def post(self, request):
         from types import SimpleNamespace
@@ -148,6 +157,8 @@ class N8nLogView(N8nBaseView):
     """POST /api/n8n/logs/ — lets an n8n workflow record an arbitrary event
     (e.g. 'workflow X finished, processed N contracts') beyond the
     automatic per-call logging every N8nBaseView subclass already does."""
+
+    required_scope = N8nApiToken.Scope.LOGS_WRITE
 
     def post(self, request):
         message = (request.data.get("message") or "").strip()
