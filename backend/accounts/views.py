@@ -16,9 +16,16 @@ MAX_TENTATIVES = 5
 FENETRE_VERROUILLAGE = timedelta(minutes=15)
 
 
-def _tentatives_recentes(username):
+def _client_ip(request):
+    forwarded = request.META.get("HTTP_X_FORWARDED_FOR")
+    if forwarded:
+        return forwarded.split(",")[0].strip()
+    return request.META.get("REMOTE_ADDR")
+
+
+def _tentatives_recentes(username, ip):
     seuil = timezone.now() - FENETRE_VERROUILLAGE
-    return LoginAttempt.objects.filter(username=username, echoue_le__gte=seuil).count()
+    return LoginAttempt.objects.filter(username=username, ip=ip, echoue_le__gte=seuil).count()
 
 
 class CsrfView(APIView):
@@ -42,17 +49,18 @@ class LoginView(APIView):
         if not username or not password:
             return Response({"detail": "Nom d'utilisateur et mot de passe requis."}, status=400)
 
-        if _tentatives_recentes(username) >= MAX_TENTATIVES:
+        ip = _client_ip(request)
+        if _tentatives_recentes(username, ip) >= MAX_TENTATIVES:
             return Response(
                 {"detail": "Trop de tentatives échouées. Réessayez dans 15 minutes."}, status=429
             )
 
         user = authenticate(request, username=username, password=password)
         if user is None or not user.is_active:
-            LoginAttempt.objects.create(username=username)
+            LoginAttempt.objects.create(username=username, ip=ip)
             return Response({"detail": "Identifiants invalides."}, status=401)
 
-        LoginAttempt.objects.filter(username=username).delete()
+        LoginAttempt.objects.filter(username=username, ip=ip).delete()
         login(request, user)
         return Response(UserSerializer(user).data)
 

@@ -2,17 +2,18 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAgentAnalyses, lancerAnalyse } from '../lib/api'
 import { describeApiError } from '../lib/errors'
+import { useAuth } from '../lib/AuthContext'
 import { Badge, Button, Card, EmptyState, PageHeader, SparkleIcon, Spinner, Toast } from '../lib/ui'
 
 const DECISION_TONE = {
-  nouveaux_arrivants: 'primary',
-  contrats_critiques: 'danger',
-  anomalies: 'warning',
+  anomalies: 'danger',
+  donnees_analysees: 'neutral',
 }
 
 export default function AgentAnalystePage() {
   const [toast, setToast] = useState(null)
   const queryClient = useQueryClient()
+  const { isDrh } = useAuth()
 
   const analysesQuery = useQuery({ queryKey: ['agent-analyses'], queryFn: fetchAgentAnalyses })
 
@@ -29,7 +30,7 @@ export default function AgentAnalystePage() {
     <div className="mx-auto max-w-4xl space-y-6 p-8">
       <PageHeader
         title="Agent Analyste"
-        description="Analyse automatiquement les imports Excel : contrats critiques, anomalies, nouveaux arrivants — et décide s'il faut alerter."
+        description="Analyse automatiquement chaque import Excel, quel que soit son contenu (contrats, congés, formations…), et décide s'il faut alerter l'équipe RH."
         actions={
           <Button onClick={() => lancerMutation.mutate()} disabled={lancerMutation.isPending}>
             {lancerMutation.isPending ? <Spinner /> : <SparkleIcon />}
@@ -56,7 +57,10 @@ export default function AgentAnalystePage() {
                   <p className="text-sm font-medium text-slate-900 dark:text-slate-100">
                     {analyse.fichier_import ? `Import : ${analyse.fichier_import}` : 'Analyse ponctuelle'}
                   </p>
-                  <p className="text-xs text-slate-400">{new Date(analyse.created_at).toLocaleString('fr-FR')}</p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(analyse.created_at).toLocaleString('fr-FR')}
+                    {isDrh && analyse.cree_par_username && ` · Lancée par ${analyse.cree_par_username}`}
+                  </p>
                 </div>
                 {analyse.alertes_envoyees > 0 && <Badge tone="success">Alerte envoyée</Badge>}
               </div>

@@ -1,6 +1,8 @@
+import json
 import re
 
 import ollama
+import requests
 from django.conf import settings
 
 DEFAULT_MAIL_PROMPT = (
@@ -29,6 +31,80 @@ def _client():
     return ollama.Client(host=settings.OLLAMA_BASE_URL)
 
 
+def _default_model():
+    return settings.GROQ_MODEL if settings.LLM_PROVIDER == "groq" else settings.OLLAMA_MODEL
+
+
+def _default_surveillance_model():
+    return settings.GROQ_MODEL if settings.LLM_PROVIDER == "groq" else settings.OLLAMA_SURVEILLANCE_MODEL
+
+
+def _analysis_max_tokens():
+    # 150 keeps local CPU inference (Ollama) fast; Groq is fast regardless
+    # of output length, so that cap only served to truncate responses
+    # mid-sentence there — give it more room.
+    return 600 if settings.LLM_PROVIDER == "groq" else 150
+
+
+def _groq_request(model, messages, options=None, stream=False):
+    max_tokens = (options or {}).get("num_predict")
+    payload = {"model": model, "messages": messages, "stream": stream}
+    if max_tokens:
+        payload["max_tokens"] = max_tokens
+    headers = {
+        "Authorization": f"Bearer {settings.GROQ_API_KEY}",
+        "Content-Type": "application/json",
+    }
+    url = f"{settings.GROQ_BASE_URL.rstrip('/')}/chat/completions"
+
+    if not stream:
+        response = requests.post(url, json=payload, headers=headers, timeout=60)
+        response.raise_for_status()
+        return response.json()["choices"][0]["message"]["content"].strip()
+
+    def _gen():
+        with requests.post(url, json=payload, headers=headers, timeout=120, stream=True) as response:
+            response.raise_for_status()
+            for raw_line in response.iter_lines():
+                if not raw_line:
+                    continue
+                line = raw_line.decode("utf-8")
+                if not line.startswith("data:"):
+                    continue
+                data_str = line[len("data:") :].strip()
+                if data_str == "[DONE]":
+                    break
+                chunk = json.loads(data_str)
+                token = chunk["choices"][0].get("delta", {}).get("content", "")
+                if token:
+                    yield token
+
+    return _gen()
+
+
+def _chat(model, messages, options=None):
+    """Non-streaming chat completion via the configured LLM_PROVIDER (ollama/groq).
+
+    Returns the response text, stripped.
+    """
+    if settings.LLM_PROVIDER == "groq":
+        return _groq_request(model, messages, options=options, stream=False)
+    response = _client().chat(model=model, messages=messages, options=options or {})
+    return response.get("message", {}).get("content", "").strip()
+
+
+def _stream_tokens(model, messages, options=None):
+    """Streaming chat completion via the configured LLM_PROVIDER. Yields text tokens."""
+    if settings.LLM_PROVIDER == "groq":
+        yield from _groq_request(model, messages, options=options, stream=True)
+        return
+    stream = _client().chat(model=model, messages=messages, stream=True, options=options or {})
+    for chunk in stream:
+        token = chunk.get("message", {}).get("content", "")
+        if token:
+            yield token
+
+
 def generate_mail_content(employee, sujet_demande, prompt_override=None, format="TEXTE", model=None):
     """Ask the local Ollama model to draft a subject + body for an HR email.
 
@@ -48,17 +124,16 @@ def generate_mail_content(employee, sujet_demande, prompt_override=None, format=
     )
 
     try:
-        response = _client().chat(
-            model=model or settings.OLLAMA_MODEL,
+        content = _chat(
+            model or _default_model(),
             messages=[
                 {"role": "system", "content": prompt},
                 {"role": "user", "content": context},
             ],
         )
     except Exception as exc:  # noqa: BLE001
-        raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc
+        raise OllamaGenerationError(f"LLM injoignable ou modèle absent: {exc}") from exc
 
-    content = response.get("message", {}).get("content", "").strip()
     return _parse_mail_response(content)
 
 
@@ -125,18 +200,17 @@ def analyser_document(prompt_analyse, contenu, forcer_envoi=False, model=None):
     contenu_tronque = contenu[:2000]
 
     try:
-        response = _client().chat(
-            model=model or settings.OLLAMA_SURVEILLANCE_MODEL,
+        content = _chat(
+            model or _default_surveillance_model(),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": contenu_tronque},
             ],
-            options={"num_predict": 150},
+            options={"num_predict": _analysis_max_tokens()},
         )
     except Exception as exc:  # noqa: BLE001
-        raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc
+        raise OllamaGenerationError(f"LLM injoignable ou modèle absent: {exc}") from exc
 
-    content = response.get("message", {}).get("content", "").strip()
     return _parse_analysis_response(content, forcer_envoi)
 
 
@@ -169,20 +243,14 @@ def stream_chat(historique, contexte=None, model=None, num_predict=400):
     messages = [{"role": "system", "content": system_prompt}, *historique]
 
     try:
-        stream = _client().chat(
-            model=model or settings.OLLAMA_MODEL,
-            messages=messages,
-            stream=True,
-            options={"num_predict": num_predict},
-        )
-        for chunk in stream:
-            token = chunk.get("message", {}).get("content", "")
-            if token:
-                yield token
+        for token in _stream_tokens(
+            model or _default_model(), messages, options={"num_predict": num_predict}
+        ):
+            yield token
     except OllamaGenerationError:
         raise
     except Exception as exc:  # noqa: BLE001
-        raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc
+        raise OllamaGenerationError(f"LLM injoignable ou modèle absent: {exc}") from exc
 
 
 def _parse_analysis_response(content, forcer_envoi):

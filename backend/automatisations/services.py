@@ -1,3 +1,4 @@
+import logging
 from datetime import timedelta
 
 from django.core.mail import EmailMessage
@@ -15,6 +16,8 @@ from .models import (
     RegleAutomatisation,
     TacheSurveillance,
 )
+
+logger = logging.getLogger("grh_auto.automatisations")
 
 DEFAULT_RAPPORT_PROMPT = (
     "Tu es un assistant RH. Rédige un rapport quotidien professionnel en "
@@ -90,6 +93,10 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_e
         mail_log.status = MailLog.Status.FAILED
         mail_log.erreur = str(exc)
         mail_log.save()
+        logger.error("Erreur Ollama lors de l'alerte '%s': %s", regle.nom, exc)
+        from integrations.notifications import notify
+
+        notify({"type": "erreur_ollama", "contexte": f"règle '{regle.nom}'", "detail": str(exc)})
         return mail_log
 
     mail_log.subject = result["subject"]
@@ -239,6 +246,10 @@ def generer_rapport_quotidien(destinataires=None):
         mail_log.status = MailLog.Status.FAILED
         mail_log.erreur = str(exc)
         mail_log.save()
+        logger.error("Erreur Ollama lors du rapport quotidien: %s", exc)
+        from integrations.notifications import notify
+
+        notify({"type": "erreur_ollama", "contexte": "rapport quotidien", "detail": str(exc)})
         return mail_log
 
     mail_log.subject = analyse["subject"]
@@ -322,6 +333,10 @@ def _executer_tache(tache, marquer_execution=True):
     try:
         analyse = analyser_document(tache.prompt_analyse, contenu, forcer_envoi)
     except OllamaGenerationError as exc:
+        logger.error("Erreur Ollama lors de la surveillance '%s': %s", tache.nom, exc)
+        from integrations.notifications import notify
+
+        notify({"type": "erreur_ollama", "contexte": f"surveillance '{tache.nom}'", "detail": str(exc)})
         return _finaliser_execution(tache, marquer_execution, envoye=False, resume=f"Erreur Ollama: {exc}")
 
     if not analyse["envoyer"]:

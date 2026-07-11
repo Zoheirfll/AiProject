@@ -32,11 +32,26 @@ class HealthView(APIView):
         return Response({"status": "ok", "app": "agents"})
 
 
+def _analyse_visible_qs(user):
+    """Same convention as core._import_visible_qs / automatisations' visible-qs
+    helpers: a Chargé RH only sees analyses they triggered themselves;
+    ownerless runs (pre-existing rows, or background jobs with no request
+    user) stay visible to everyone; DRH sees everything."""
+    from django.db.models import Q
+
+    qs = AgentAnalyse.objects.all()
+    if user.is_drh:
+        return qs
+    return qs.filter(Q(cree_par=user) | Q(cree_par__isnull=True))
+
+
 class AgentAnalyseListView(ListAPIView):
     """US-E6-01: past analyste-agent runs, most recent first."""
 
-    queryset = AgentAnalyse.objects.all()
     serializer_class = AgentAnalyseSerializer
+
+    def get_queryset(self):
+        return _analyse_visible_qs(self.request.user)
 
 
 class AnalyseLancerView(APIView):
@@ -51,7 +66,7 @@ class AnalyseLancerView(APIView):
             {k: v for k, v in EmployeeSerializer(e).data.items() if k != "contracts"}
             for e in Employee.objects.filter(actif=True)
         ]
-        analyse = analyser_import(None, lignes=lignes)
+        analyse = analyser_import(None, lignes=lignes, cree_par=request.user)
         return Response(AgentAnalyseSerializer(analyse).data, status=201)
 
 
@@ -176,8 +191,11 @@ class WorkflowPersonnaliseView(APIView):
 
 
 class WorkflowExecutionListView(ListAPIView):
-    """US-E6-04: history of workflow executions."""
+    """US-E6-04: history of workflow executions. DRH-only, matching every
+    other workflow endpoint (launch/personnalise/reprendre) — orchestrator
+    launching is DRH-only already, so the read side needs the same guard."""
 
+    permission_classes = [IsDRH]
     queryset = WorkflowExecution.objects.all()
     serializer_class = WorkflowExecutionSerializer
 

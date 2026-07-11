@@ -69,11 +69,13 @@ ANALYSTE_PROMPT = (
 )
 
 
-def analyser_import(excel_import=None, lignes=None):
+def analyser_import(excel_import=None, lignes=None, cree_par=None):
     """Run the analyste agent for one import (or None + lignes=None for an
     ad-hoc snapshot analysis). Creates and returns an AgentAnalyse row;
     sends an alert email if the model decides it's warranted and recipients
-    are configured."""
+    are configured. cree_par is the triggering user, or None for background
+    jobs (folder-watch imports) — ownerless rows stay visible to everyone,
+    same convention as automatisations/core.ExcelImport."""
     from core.models import MailLog
     from core.services import send_mail_log
 
@@ -118,4 +120,5 @@ def analyser_import(excel_import=None, lignes=None):
         resume=analyse["body"] or contenu,
         decisions=decisions,
         alertes_envoyees=alertes_envoyees,
+        cree_par=cree_par,
     )

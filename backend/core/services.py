@@ -11,6 +11,16 @@ from django.core.mail import EmailMessage, EmailMultiAlternatives
 
 from employees.models import Employee
 
+# No authenticated user (DRH or Chargé RH) legitimately needs to upload a
+# larger sheet than this — caps memory/CPU use per upload (imports, mass-mail
+# previews, surveillance watch files) against oversized or maliciously
+# crafted files (e.g. zip-bomb-style .xlsx).
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
+
+
+def fichier_trop_volumineux(uploaded_file):
+    return uploaded_file.size > MAX_UPLOAD_SIZE_BYTES
+
 
 def _strip_html(html):
     return re.sub(r"<[^>]+>", " ", html).strip()
@@ -347,5 +357,54 @@ def build_import_template():
 
     buffer = io.BytesIO()
     workbook.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+MAIL_HISTORIQUE_STATUT_LABEL = {"SENT": "Envoyé", "FAILED": "Échec", "DRAFT": "Brouillon"}
+
+
+def build_mail_historique_excel(mail_logs):
+    """US-E8-03: export .xlsx de l'historique des mails (filtré en amont par l'appelant)."""
+    workbook = openpyxl.Workbook()
+    sheet = workbook.active
+    sheet.title = "Historique mails"
+
+    headers = ["Date", "Destinataire", "Sujet", "Statut", "Erreur"]
+    sheet.append(headers)
+    for cell in sheet[1]:
+        cell.font = Font(bold=True)
+
+    for mail_log in mail_logs:
+        sheet.append(
+            [
+                mail_log.created_at.strftime("%d/%m/%Y %H:%M"),
+                mail_log.nom_destinataire or mail_log.email_destinataire,
+                mail_log.subject or mail_log.sujet_demande,
+                MAIL_HISTORIQUE_STATUT_LABEL.get(mail_log.status, mail_log.status),
+                mail_log.erreur,
+            ]
+        )
+
+    for i, header in enumerate(headers, start=1):
+        sheet.column_dimensions[sheet.cell(row=1, column=i).column_letter].width = max(16, len(header) + 2)
+
+    buffer = io.BytesIO()
+    workbook.save(buffer)
+    buffer.seek(0)
+    return buffer
+
+
+def build_mail_historique_pdf(mail_logs):
+    """US-E8-03: export .pdf de l'historique des mails, rendu via WeasyPrint."""
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+
+    html = render_to_string(
+        "core/mail_historique_pdf.html",
+        {"rows": mail_logs, "generated_at": datetime.datetime.now()},
+    )
+    buffer = io.BytesIO()
+    HTML(string=html).write_pdf(buffer)
     buffer.seek(0)
     return buffer

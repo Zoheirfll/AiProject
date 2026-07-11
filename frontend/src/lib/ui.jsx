@@ -272,6 +272,14 @@ export function TrashIcon({ className = 'h-4 w-4' }) {
   )
 }
 
+export function EditIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M14.5 3.5a1.5 1.5 0 012.12 2.12L6.5 15.75 3 17l1.25-3.5L14.5 3.5z" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 export function CheckCircleIcon({ className = 'h-4 w-4' }) {
   return (
     <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
@@ -358,6 +366,24 @@ export function WorkflowIcon({ className = 'h-4 w-4' }) {
       <rect x="12.5" y="3" width="5" height="4" rx="1" />
       <rect x="7.5" y="13" width="5" height="4" rx="1" />
       <path d="M5 7v3a2 2 0 002 2h2M15 7v3a2 2 0 01-2 2h-2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function BellIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M5 8a5 5 0 0110 0c0 3.5 1.2 4.5 1.2 4.5H3.8S5 11.5 5 8z" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.3 15.5a1.8 1.8 0 003.4 0" strokeLinecap="round" />
+    </svg>
+  )
+}
+
+export function FileTextIcon({ className = 'h-4 w-4' }) {
+  return (
+    <svg className={className} viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.6">
+      <path d="M6 2.5h6l3 3v12H6z" strokeLinejoin="round" />
+      <path d="M8 9h6M8 12h6M8 15h4" strokeLinecap="round" />
     </svg>
   )
 }

@@ -9,7 +9,9 @@ from rest_framework.views import APIView
 
 from agents.ollama_client import _client as ollama_client
 from automatisations.models import RegleAutomatisation, TacheSurveillance
+from automatisations.views import _regle_visible_qs, _tache_visible_qs
 from core.models import ExcelImport, MailLog
+from core.views import _import_visible_qs
 from employees.models import Contract
 
 
@@ -152,7 +154,7 @@ class ActiviteRecenteView(APIView):
                 }
             )
 
-        for imp in ExcelImport.objects.order_by("-created_at")[:limite]:
+        for imp in _import_visible_qs(request.user).order_by("-created_at")[:limite]:
             evenements.append(
                 {
                     "type": "import",
@@ -162,7 +164,7 @@ class ActiviteRecenteView(APIView):
                 }
             )
 
-        for tache in TacheSurveillance.objects.exclude(derniere_execution__isnull=True).order_by(
+        for tache in _tache_visible_qs(request.user).exclude(derniere_execution__isnull=True).order_by(
             "-derniere_execution"
         )[:limite]:
             evenements.append(
@@ -176,9 +178,9 @@ class ActiviteRecenteView(APIView):
 
         from automatisations.models import AlerteEnvoyee
 
-        for alerte in AlerteEnvoyee.objects.select_related("regle", "contract__employee").order_by(
-            "-date_envoi"
-        )[:limite]:
+        for alerte in AlerteEnvoyee.objects.filter(
+            regle__in=_regle_visible_qs(request.user)
+        ).select_related("regle", "contract__employee").order_by("-date_envoi")[:limite]:
             evenements.append(
                 {
                     "type": "alerte",

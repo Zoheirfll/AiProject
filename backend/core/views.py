@@ -1,3 +1,4 @@
+import logging
 from types import SimpleNamespace
 
 from django.conf import settings
@@ -14,9 +15,17 @@ from accounts.permissions import IsDRH
 from agents.ollama_client import OllamaGenerationError, generate_mail_content
 from employees.models import Employee
 
-from .models import IMPORT_MAPPING_FIELDS, ExcelImport, ImportConfig, MailLog
-from .serializers import ExcelImportSerializer, MailLogSerializer
-from .services import build_import_template, parse_employee_excel, parse_mail_masse_excel, send_mail_log
+from .models import IMPORT_MAPPING_FIELDS, ExcelImport, ImportConfig, MailLog, TechnicalLog
+from .serializers import ExcelImportSerializer, MailLogSerializer, TechnicalLogSerializer
+from .services import (
+    build_import_template,
+    fichier_trop_volumineux,
+    parse_employee_excel,
+    parse_mail_masse_excel,
+    send_mail_log,
+)
+
+logger = logging.getLogger("grh_auto.core")
 
 
 class ImportModeleView(APIView):
@@ -48,6 +57,8 @@ class ImportUploadView(APIView):
         uploaded_file = request.FILES.get("fichier")
         if not uploaded_file:
             return Response({"detail": "Aucun fichier fourni."}, status=400)
+        if fichier_trop_volumineux(uploaded_file):
+            return Response({"detail": "Fichier trop volumineux (max 10 Mo)."}, status=400)
 
         excel_import = ExcelImport.objects.create(
             fichier=uploaded_file, nom_fichier_origine=uploaded_file.name, cree_par=request.user,
@@ -75,9 +86,26 @@ class ImportUploadView(APIView):
             from agents.analyste import analyser_import
 
             try:
-                analyser_import(excel_import, lignes=lignes)
+                analyser_import(excel_import, lignes=lignes, cree_par=request.user)
             except Exception:  # noqa: BLE001
                 pass  # the analyste agent is best-effort; never fail the upload because of it
+
+        if excel_import.status == ExcelImport.Status.SUCCESS:
+            logger.info("Import '%s' terminé (%s lignes importées)", excel_import.nom_fichier_origine, excel_import.lignes_importees)
+        else:
+            logger.warning("Import '%s' en échec: %s", excel_import.nom_fichier_origine, excel_import.erreurs)
+
+        from integrations.notifications import notify
+
+        notify(
+            {
+                "type": "import",
+                "id": excel_import.id,
+                "fichier": excel_import.nom_fichier_origine,
+                "status": excel_import.status,
+                "lignes_importees": excel_import.lignes_importees,
+            }
+        )
 
         return Response(ExcelImportSerializer(excel_import).data, status=201)
 
@@ -185,6 +213,11 @@ def _generer_brouillon(
     except OllamaGenerationError as exc:
         mail_log.status = MailLog.Status.FAILED
         mail_log.erreur = str(exc)
+        logger.error("Erreur Ollama lors de la génération d'un brouillon: %s", exc)
+
+        from integrations.notifications import notify
+
+        notify({"type": "erreur_ollama", "contexte": "génération de mail", "detail": str(exc)})
     mail_log.save()
 
     return mail_log
@@ -237,6 +270,8 @@ class MailApercuMasseView(APIView):
         uploaded_file = request.FILES.get("fichier")
         if not uploaded_file:
             return Response({"detail": "Aucun fichier fourni."}, status=400)
+        if fichier_trop_volumineux(uploaded_file):
+            return Response({"detail": "Fichier trop volumineux (max 10 Mo)."}, status=400)
 
         sujet_defaut = (request.data.get("sujet_demande") or "").strip()
         prompt_override = request.data.get("prompt_override")
@@ -306,10 +341,14 @@ def _envoyer_mail_log(mail_log, subject=None, body=None, format=None):
         mail_log.erreur = str(exc)
     mail_log.save()
 
-    if mail_log.status == MailLog.Status.SENT:
-        from integrations.notifications import notify
+    from integrations.notifications import notify
 
+    if mail_log.status == MailLog.Status.SENT:
+        logger.info("Mail #%s envoyé (%s)", mail_log.id, mail_log.subject)
         notify({"type": "mail", "id": mail_log.id, "subject": mail_log.subject})
+    else:
+        logger.error("Échec d'envoi du mail #%s: %s", mail_log.id, mail_log.erreur)
+        notify({"type": "mail_echec", "id": mail_log.id, "subject": mail_log.subject, "erreur": mail_log.erreur})
 
     return mail_log
 
@@ -361,19 +400,75 @@ class MailHistoriqueView(ListAPIView):
     serializer_class = MailLogSerializer
 
     def get_queryset(self):
-        qs = MailLog.objects.all()
-        statut = self.request.query_params.get("statut")
-        employee_id = self.request.query_params.get("employee")
-        date_str = self.request.query_params.get("date")
+        return _mail_historique_qs(self.request)
 
-        if statut:
-            qs = qs.filter(status=statut.upper())
-        if employee_id:
-            qs = qs.filter(employee_id=employee_id)
-        if date_str:
-            qs = qs.filter(created_at__date=date_str)
+
+class TechnicalLogView(ListAPIView):
+    """US-E8-02: logs techniques consultables sur /logs (DRH uniquement)."""
+
+    permission_classes = [IsDRH]
+    serializer_class = TechnicalLogSerializer
+
+    def get_queryset(self):
+        qs = TechnicalLog.objects.all()
+        level = self.request.query_params.get("level")
+        logger_name = self.request.query_params.get("logger")
+        date_from = self.request.query_params.get("date_from")
+        date_to = self.request.query_params.get("date_to")
+
+        if level:
+            qs = qs.filter(level=level.upper())
+        if logger_name:
+            qs = qs.filter(logger_name__icontains=logger_name)
+        if date_from:
+            qs = qs.filter(created_at__date__gte=date_from)
+        if date_to:
+            qs = qs.filter(created_at__date__lte=date_to)
 
         return qs
+
+
+def _mail_historique_qs(request):
+    qs = MailLog.objects.all()
+    statut = request.query_params.get("statut")
+    employee_id = request.query_params.get("employee")
+    date_str = request.query_params.get("date")
+
+    if statut:
+        qs = qs.filter(status=statut.upper())
+    if employee_id:
+        qs = qs.filter(employee_id=employee_id)
+    if date_str:
+        qs = qs.filter(created_at__date=date_str)
+
+    return qs
+
+
+class MailHistoriqueExportView(APIView):
+    """US-E8-03: export de l'historique des mails filtré, en PDF ou Excel."""
+
+    def get(self, request):
+        export_format = (request.query_params.get("export_format") or "excel").lower()
+        rows = list(_mail_historique_qs(request))
+        filename_date = timezone.now().strftime("%Y-%m-%d")
+
+        if export_format == "pdf":
+            from .services import build_mail_historique_pdf
+
+            buffer = build_mail_historique_pdf(rows)
+            response = HttpResponse(buffer.read(), content_type="application/pdf")
+            response["Content-Disposition"] = f'attachment; filename="historique_mails_{filename_date}.pdf"'
+            return response
+
+        from .services import build_mail_historique_excel
+
+        buffer = build_mail_historique_excel(rows)
+        response = HttpResponse(
+            buffer.read(),
+            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        response["Content-Disposition"] = f'attachment; filename="historique_mails_{filename_date}.xlsx"'
+        return response
 
 
 class SmtpTestView(APIView):
@@ -407,6 +502,8 @@ class SmtpTestView(APIView):
 
 
 class ConfigView(APIView):
+    permission_classes = [IsDRH]
+
     def get(self, request):
         return Response(
             {

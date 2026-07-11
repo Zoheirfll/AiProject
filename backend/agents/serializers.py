@@ -18,10 +18,20 @@ class AgentConfigSerializer(serializers.ModelSerializer):
 
 class AgentAnalyseSerializer(serializers.ModelSerializer):
     fichier_import = serializers.CharField(source="excel_import.nom_fichier_origine", read_only=True, default=None)
+    cree_par_username = serializers.CharField(source="cree_par.username", read_only=True, default=None)
 
     class Meta:
         model = AgentAnalyse
-        fields = ["id", "excel_import", "fichier_import", "resume", "decisions", "alertes_envoyees", "created_at"]
+        fields = [
+            "id",
+            "excel_import",
+            "fichier_import",
+            "resume",
+            "decisions",
+            "alertes_envoyees",
+            "cree_par_username",
+            "created_at",
+        ]
         read_only_fields = fields
 
 

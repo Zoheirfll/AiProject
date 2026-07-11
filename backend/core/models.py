@@ -127,3 +127,28 @@ class MailLog(models.Model):
         if self.employee:
             return f"{self.employee.prenom} {self.employee.nom}"
         return self.destinataire_nom
+
+
+class TechnicalLog(models.Model):
+    """Every INFO+ log record emitted app-wide, mirrored into the DB by
+    core.logging_handlers.DatabaseLogHandler (see LOGGING in settings/base.py)."""
+
+    class Level(models.TextChoices):
+        INFO = "INFO", "Info"
+        WARNING = "WARNING", "Avertissement"
+        ERROR = "ERROR", "Erreur"
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    level = models.CharField(max_length=10, choices=Level.choices)
+    logger_name = models.CharField(max_length=200)
+    message = models.TextField()
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["-created_at"]),
+            models.Index(fields=["level"]),
+        ]
+
+    def __str__(self):
+        return f"[{self.level}] {self.logger_name}: {self.message[:50]}"

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
+import DOMPurify from 'dompurify'
 import {
   envoyerMail,
   envoyerMailsMasse,
@@ -158,7 +159,7 @@ function SingleMailFlow({ mode, employeesQuery }) {
             <Field label="Aperçu HTML rendu">
               <div
                 className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
-                dangerouslySetInnerHTML={{ __html: editedBody }}
+                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(editedBody) }}
               />
             </Field>
           )}

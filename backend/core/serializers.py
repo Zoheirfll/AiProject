@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ExcelImport, MailLog
+from .models import ExcelImport, MailLog, TechnicalLog
 
 
 class ExcelImportSerializer(serializers.ModelSerializer):
@@ -45,3 +45,10 @@ class MailLogSerializer(serializers.ModelSerializer):
             "sent_at",
         ]
         read_only_fields = ["status", "erreur", "created_at", "sent_at"]
+
+
+class TechnicalLogSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TechnicalLog
+        fields = ["id", "created_at", "level", "logger_name", "message"]
+        read_only_fields = fields

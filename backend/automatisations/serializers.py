@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from core.services import fichier_trop_volumineux
+
 from .models import (
     AlerteEnvoyee,
     AutomatisationConfig,
@@ -55,6 +57,11 @@ class RegleAutomatisationSerializer(serializers.ModelSerializer):
 
 class TacheSurveillanceSerializer(serializers.ModelSerializer):
     cree_par_username = serializers.CharField(source="cree_par.username", read_only=True, default=None)
+
+    def validate_fichier(self, value):
+        if value and fichier_trop_volumineux(value):
+            raise serializers.ValidationError("Fichier trop volumineux (max 10 Mo).")
+        return value
 
     class Meta:
         model = TacheSurveillance

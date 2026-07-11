@@ -8,11 +8,10 @@ ever translating into unsafe or nonsensical actions.
 """
 from datetime import timedelta
 
-from django.conf import settings
 from django.utils import timezone
 
 from .models import AgentConfig, WorkflowExecution
-from .ollama_client import OllamaGenerationError, _client, generate_mail_content
+from .ollama_client import OllamaGenerationError, _chat, _default_model, generate_mail_content
 
 
 def _etape_verifier_contrats_expirant(execution):
@@ -212,8 +211,8 @@ def planifier_workflow_personnalise(instruction, model=None):
     )
 
     try:
-        response = _client().chat(
-            model=model or settings.OLLAMA_MODEL,
+        content = _chat(
+            model or _default_model(),
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": instruction},
@@ -221,9 +220,8 @@ def planifier_workflow_personnalise(instruction, model=None):
             options={"num_predict": 100},
         )
     except Exception as exc:  # noqa: BLE001
-        raise OllamaGenerationError(f"Ollama injoignable ou modèle absent: {exc}") from exc
+        raise OllamaGenerationError(f"LLM injoignable ou modèle absent: {exc}") from exc
 
-    content = response.get("message", {}).get("content", "").strip()
     slugs = [s.strip() for s in content.replace("\n", ",").split(",") if s.strip()]
     valides = [s for s in slugs if s in STEP_PRIMITIVES]
 

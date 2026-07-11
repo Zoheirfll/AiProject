@@ -16,9 +16,14 @@ class User(AbstractUser):
 
 
 class LoginAttempt(models.Model):
-    """Tracks failed logins per username for lockout (US: brute-force protection)."""
+    """Tracks failed logins per (username, IP) for lockout (US: brute-force
+    protection). Keyed by IP as well as username — not just username — so an
+    attacker hammering a known account (e.g. the DRH account) from one
+    source can't lock that account out for the legitimate user connecting
+    from their own normal network/device."""
 
     username = models.CharField(max_length=150, db_index=True)
+    ip = models.GenericIPAddressField(null=True, blank=True, db_index=True)
     echoue_le = models.DateTimeField(auto_now_add=True)
 
     class Meta:

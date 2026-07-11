@@ -12,8 +12,10 @@ from .views import (
     MailApercuView,
     MailEnvoyerMasseView,
     MailEnvoyerView,
+    MailHistoriqueExportView,
     MailHistoriqueView,
     SmtpTestView,
+    TechnicalLogView,
 )
 
 app_name = "core"
@@ -30,6 +32,8 @@ urlpatterns = [
     path("mails/envoyer/", MailEnvoyerView.as_view(), name="mails-envoyer"),
     path("mails/envoyer-masse/", MailEnvoyerMasseView.as_view(), name="mails-envoyer-masse"),
     path("mails/historique/", MailHistoriqueView.as_view(), name="mails-historique"),
+    path("mails/historique/export/", MailHistoriqueExportView.as_view(), name="mails-historique-export"),
+    path("logs/", TechnicalLogView.as_view(), name="logs"),
     path("config/", ConfigView.as_view(), name="config"),
     path("config/smtp/test/", SmtpTestView.as_view(), name="config-smtp-test"),
 ]

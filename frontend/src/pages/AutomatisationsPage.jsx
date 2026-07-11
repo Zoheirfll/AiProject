@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../lib/AuthContext'
 import { describeApiError } from '../lib/errors'
@@ -10,6 +10,7 @@ import {
   fetchRegles,
   runRegle,
   testRegle,
+  updateRegle,
 } from '../lib/api'
 import {
   Badge,
@@ -17,6 +18,7 @@ import {
   Button,
   Card,
   Checkbox,
+  EditIcon,
   EmptyState,
   Field,
   HistoryIcon,
@@ -48,8 +50,26 @@ function toList(value) {
   return value.split(',').map((v) => v.trim()).filter(Boolean)
 }
 
-function RuleFormModal({ open, onClose, onSubmit, isPending }) {
+function regleToForm(regle) {
+  return {
+    nom: regle.nom,
+    actif: regle.actif,
+    delais_jours: regle.delais_jours.join(', '),
+    departements_filtre: (regle.departements_filtre || []).join(', '),
+    destinataires: (regle.destinataires || []).join(', '),
+    cc: (regle.cc || []).join(', '),
+    bcc: (regle.bcc || []).join(', '),
+    prompt_override: regle.prompt_override || '',
+    format: regle.format || 'TEXTE',
+  }
+}
+
+function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
   const [form, setForm] = useState(emptyForm)
+
+  useEffect(() => {
+    if (open) setForm(editingRegle ? regleToForm(editingRegle) : emptyForm)
+  }, [open, editingRegle])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -64,11 +84,10 @@ function RuleFormModal({ open, onClose, onSubmit, isPending }) {
       prompt_override: form.prompt_override,
       format: form.format,
     })
-    setForm(emptyForm)
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Nouvelle règle d'automatisation">
+    <Modal open={open} onClose={onClose} title={editingRegle ? `Modifier "${editingRegle.nom}"` : "Nouvelle règle d'automatisation"}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <Field label="Nom de la règle">
           <Input
@@ -137,7 +156,8 @@ function RuleFormModal({ open, onClose, onSubmit, isPending }) {
         <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={isPending || !form.nom}>
-            {isPending && <Spinner />} {isPending ? 'Création…' : 'Créer la règle'}
+            {isPending && <Spinner />}
+            {isPending ? (editingRegle ? 'Enregistrement…' : 'Création…') : (editingRegle ? 'Enregistrer' : 'Créer la règle')}
           </Button>
         </div>
       </form>
@@ -251,7 +271,7 @@ function TestModal({ regle, onClose, onConfirm, isPending }) {
   )
 }
 
-function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onDelete, isRunning, isDrh }) {
+function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onEdit, onDelete, isRunning, isDrh }) {
   return (
     <Card className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
       <div className="flex gap-3">
@@ -282,6 +302,9 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
           {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
         </Button>
         <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
+        <IconButton label="Modifier" onClick={onEdit}>
+          <EditIcon />
+        </IconButton>
         {isDrh && (
           <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
             <TrashIcon />
@@ -295,6 +318,7 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
 export default function AutomatisationsPage() {
   const { isDrh } = useAuth()
   const [modalOpen, setModalOpen] = useState(false)
+  const [editingRegle, setEditingRegle] = useState(null)
   const [toast, setToast] = useState(null)
   const [activeId, setActiveId] = useState(null)
   const [apercuId, setApercuId] = useState(null)
@@ -305,14 +329,29 @@ export default function AutomatisationsPage() {
   const reglesQuery = useQuery({ queryKey: ['regles'], queryFn: fetchRegles })
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['regles'] })
 
+  const closeModal = () => {
+    setModalOpen(false)
+    setEditingRegle(null)
+  }
+
   const createMutation = useMutation({
     mutationFn: createRegle,
     onSuccess: () => {
-      setModalOpen(false)
+      closeModal()
       invalidate()
       setToast({ message: 'Règle créée avec succès.', tone: 'success' })
     },
     onError: () => setToast({ message: 'Échec de la création de la règle.', tone: 'error' }),
+  })
+
+  const updateMutation = useMutation({
+    mutationFn: ({ id, payload }) => updateRegle(id, payload),
+    onSuccess: () => {
+      closeModal()
+      invalidate()
+      setToast({ message: 'Règle mise à jour.', tone: 'success' })
+    },
+    onError: (err) => setToast({ message: describeApiError(err, 'Échec de la mise à jour.'), tone: 'error' }),
   })
 
   const deleteMutation = useMutation({
@@ -369,9 +408,14 @@ export default function AutomatisationsPage() {
 
       <RuleFormModal
         open={modalOpen}
-        onClose={() => setModalOpen(false)}
-        onSubmit={(payload) => createMutation.mutate(payload)}
-        isPending={createMutation.isPending}
+        onClose={closeModal}
+        onSubmit={(payload) =>
+          editingRegle
+            ? updateMutation.mutate({ id: editingRegle.id, payload })
+            : createMutation.mutate(payload)
+        }
+        isPending={editingRegle ? updateMutation.isPending : createMutation.isPending}
+        editingRegle={editingRegle}
       />
 
       {reglesQuery.isLoading && (
@@ -398,6 +442,10 @@ export default function AutomatisationsPage() {
             onOpenTest={() => setTestRegleTarget(regle)}
             onOpenApercu={() => setApercuId(regle.id)}
             onOpenHistorique={() => setHistoriqueId(regle.id)}
+            onEdit={() => {
+              setEditingRegle(regle)
+              setModalOpen(true)
+            }}
             onDelete={() => {
               if (window.confirm(`Supprimer la règle "${regle.nom}" ?`)) deleteMutation.mutate(regle.id)
             }}

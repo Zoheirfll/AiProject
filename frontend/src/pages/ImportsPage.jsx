@@ -241,7 +241,7 @@ function ImportHistorySection() {
 }
 
 function EmployeesSection() {
-  const [filters, setFilters] = useState({ search: '', departement: '', categorie: '' })
+  const [filters, setFilters] = useState({ search: '', departement: '', categorie: '', type_contrat: '' })
   const [ordering, setOrdering] = useState('nom')
   const [page, setPage] = useState(1)
   const [expanded, setExpanded] = useState(null)
@@ -310,7 +310,7 @@ function EmployeesSection() {
         />
         <Select
           className="max-w-[12rem]"
-          value=""
+          value={filters.type_contrat}
           onChange={(e) => {
             setPage(1)
             setFilters((f) => ({ ...f, type_contrat: e.target.value }))

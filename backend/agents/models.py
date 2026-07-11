@@ -24,7 +24,9 @@ class AgentConfig(models.Model):
         return obj
 
     def modele(self, agent):
-        return getattr(self, f"modele_{agent}", "") or settings.OLLAMA_MODEL
+        from .ollama_client import _default_model
+
+        return getattr(self, f"modele_{agent}", "") or _default_model()
 
 
 class AgentAnalyse(models.Model):
@@ -36,6 +38,9 @@ class AgentAnalyse(models.Model):
     resume = models.TextField(blank=True)
     decisions = models.JSONField(default=list, blank=True)
     alertes_envoyees = models.PositiveIntegerField(default=0)
+    cree_par = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="analyses_lancees",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

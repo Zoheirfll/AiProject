@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 import environ
@@ -141,10 +142,53 @@ OLLAMA_MODEL = env("OLLAMA_MODEL", default="llama3")
 # which sends larger inputs than mail generation — keep it snappy on CPU-only setups.
 OLLAMA_SURVEILLANCE_MODEL = env("OLLAMA_SURVEILLANCE_MODEL", default="qwen2.5:1.5b")
 
+# LLM provider switch: "ollama" (default, local-only, Loi 18/07 compliant) or
+# "groq" (Groq cloud API — TEMPORARY stand-in while no local server is available;
+# sends HR data outside national territory, revert to "ollama" once a server exists).
+LLM_PROVIDER = env("LLM_PROVIDER", default="ollama")
+GROQ_API_KEY = env("GROQ_API_KEY", default="")
+GROQ_BASE_URL = env("GROQ_BASE_URL", default="https://api.groq.com/openai/v1")
+GROQ_MODEL = env("GROQ_MODEL", default="llama-3.3-70b-versatile")
+
 # n8n (dashboard health check — reached by Docker service name inside the Compose network)
 N8N_URL = env("N8N_INTERNAL_URL", default="http://n8n:5678")
 # US-E7-02: static bearer token n8n workflows use to call /api/n8n/* — .env only, never hardcoded.
 N8N_API_TOKEN = env("N8N_API_TOKEN", default="")
+
+# Logs techniques (US-E8-02): un handler écrit en DB (TechnicalLog, consultable
+# via /logs), un autre en fichier avec rotation quotidienne.
+LOGS_DIR = BASE_DIR / "logs"
+os.makedirs(LOGS_DIR, exist_ok=True)
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {"format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s"},
+    },
+    "handlers": {
+        "console": {"class": "logging.StreamHandler", "formatter": "standard"},
+        "file": {
+            "class": "logging.handlers.TimedRotatingFileHandler",
+            "filename": str(LOGS_DIR / "grh-auto.log"),
+            "when": "midnight",
+            "backupCount": 14,
+            "formatter": "standard",
+        },
+        "database": {
+            "class": "core.logging_handlers.DatabaseLogHandler",
+            "formatter": "standard",
+        },
+    },
+    "root": {"handlers": ["console"], "level": "WARNING"},
+    "loggers": {
+        "grh_auto": {
+            "handlers": ["console", "file", "database"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 
 # Email (SMTP Gmail)
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 
 function wsUrl(conversationId) {
-  const base = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const base = import.meta.env.VITE_API_URL || window.location.origin
   return `${base.replace(/^http/, 'ws')}/ws/chat/${conversationId}/`
 }
 

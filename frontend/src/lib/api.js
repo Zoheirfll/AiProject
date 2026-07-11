@@ -1,7 +1,7 @@
 import axios from 'axios'
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'http://localhost:8000',
+  baseURL: import.meta.env.VITE_API_URL || '',
   withCredentials: true,
 })
 
@@ -125,6 +125,27 @@ export async function envoyerMailsMasse(mails) {
 
 export async function fetchMailHistorique(params = {}) {
   const { data } = await api.get('/api/mails/historique/', { params })
+  return data
+}
+
+export async function exportMailHistorique(format, params = {}) {
+  const { data } = await api.get('/api/mails/historique/export/', {
+    params: { ...params, export_format: format },
+    responseType: 'blob',
+  })
+  const extension = format === 'pdf' ? 'pdf' : 'xlsx'
+  const url = window.URL.createObjectURL(data)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `historique_mails_${new Date().toISOString().slice(0, 10)}.${extension}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.URL.revokeObjectURL(url)
+}
+
+export async function fetchLogs(params = {}) {
+  const { data } = await api.get('/api/logs/', { params })
   return data
 }
 
