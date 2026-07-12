@@ -4,16 +4,24 @@
 
 export const colors = {
   primary: {
-    50: '#f5f3ff',
-    100: '#ede9fe',
-    200: '#ddd6fe',
-    300: '#c4b5fd',
-    400: '#a78bfa',
-    500: '#8b5cf6',
-    600: '#7c3aed',
-    700: '#6d28d9',
-    800: '#5b21b6',
-    900: '#4c1d95',
+    50: '#eff6ff',
+    100: '#dbeafe',
+    200: '#bfdbfe',
+    300: '#93c5fd',
+    400: '#60a5fa',
+    500: '#3b82f6',
+    600: '#2563eb',
+    700: '#1d4ed8',
+    800: '#1e40af',
+    900: '#1e3a8a',
+  },
+  accent: {
+    50: '#ecfdf5',
+    100: '#d1fae5',
+    300: '#6ee7b7',
+    500: '#10b981',
+    600: '#059669',
+    700: '#047857',
   },
   slate: {
     50: '#f8fafc',
@@ -50,13 +58,13 @@ export const radii = {
 
 export const shadows = {
   card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',
-  raised: '0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.06)',
-  overlay: '0 20px 40px -8px rgb(15 23 42 / 0.25)',
+  raised: '0 8px 24px -6px rgb(30 64 175 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.06)',
+  overlay: '0 24px 48px -10px rgb(15 23 42 / 0.28)',
 }
 
 export const chartPalette = [
   colors.primary[500],
-  colors.success.solid,
+  colors.accent[500],
   colors.warning.solid,
   colors.danger.solid,
   colors.primary[300],

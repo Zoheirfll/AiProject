@@ -142,10 +142,33 @@ function Sidebar() {
     <aside className="flex h-screen w-60 shrink-0 flex-col border-r border-slate-200 bg-white dark:border-slate-700 dark:bg-slate-800">
       <div className="flex items-center justify-between px-5 py-5">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-sm font-bold text-white">
-            RH
+          <svg viewBox="0 0 100 100" className="h-8 w-8 shrink-0" aria-hidden="true">
+            <defs>
+              <linearGradient id="sidebarBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" stopColor="#1E40AF" />
+                <stop offset="100%" stopColor="#3B82F6" />
+              </linearGradient>
+              <linearGradient id="sidebarEmerald" x1="0%" y1="100%" x2="100%" y2="0%">
+                <stop offset="0%" stopColor="#059669" />
+                <stop offset="100%" stopColor="#10B981" />
+              </linearGradient>
+            </defs>
+            <path d="M 50 5 L 90 28 L 90 72 L 50 95 L 10 72 L 10 28 Z" fill="url(#sidebarBlue)" />
+            <path d="M 25 50 C 25 35, 45 25, 50 45 C 55 65, 75 55, 75 40" fill="none" stroke="url(#sidebarEmerald)" strokeWidth="6" strokeLinecap="round" />
+            <circle cx="25" cy="50" r="5" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+            <circle cx="75" cy="40" r="5" fill="#10B981" stroke="#FFFFFF" strokeWidth="2" />
+            <circle cx="50" cy="27" r="7" fill="#FFFFFF" />
+            <path d="M 37 72 C 37 58, 43 54, 50 54 C 57 54, 63 58, 63 72 Z" fill="#FFFFFF" />
+            <circle cx="50" cy="45" r="4" fill="#FFFFFF" />
+          </svg>
+          <div className="flex flex-col leading-tight">
+            <span className="text-sm font-bold tracking-tight text-slate-900 dark:text-slate-50">
+              GRH<span className="text-primary-600 dark:text-primary-400">Auto</span>
+            </span>
+            <span className="text-[9px] font-semibold uppercase tracking-widest text-slate-400 dark:text-slate-500">
+              Plateforme RH
+            </span>
           </div>
-          <span className="text-sm font-semibold tracking-tight text-slate-900 dark:text-slate-50">GRH-Auto</span>
         </div>
         <div className="flex items-center gap-1">
           <NotificationBell />
@@ -153,22 +176,26 @@ function Sidebar() {
         </div>
       </div>
 
-      <nav className="flex-1 space-y-1 px-3">
+      <nav className="flex-1 space-y-0.5 px-3">
         {NAV_ITEMS.filter((item) => !item.drhOnly || isDrh).map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              `group relative flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 ${
                 isActive
-                  ? 'bg-primary-50 text-primary-700 dark:bg-primary-950/50 dark:text-primary-300'
-                  : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100'
+                  ? 'bg-linear-to-r from-primary-600 to-primary-500 text-white shadow-sm shadow-primary-600/25'
+                  : 'text-slate-600 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-100'
               }`
             }
           >
-            <Icon className="h-4 w-4 shrink-0" />
-            {label}
+            {({ isActive }) => (
+              <>
+                <Icon className={`h-4 w-4 shrink-0 transition-transform duration-150 ${isActive ? '' : 'group-hover:scale-110'}`} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
         {isDrh && (
@@ -176,9 +203,9 @@ function Sidebar() {
             href={N8N_URL}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700 dark:hover:text-slate-100"
+            className="group flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-all duration-150 hover:bg-slate-100/80 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-700/60 dark:hover:text-slate-100"
           >
-            <ExternalLinkIcon className="h-4 w-4 shrink-0" />
+            <ExternalLinkIcon className="h-4 w-4 shrink-0 transition-transform duration-150 group-hover:scale-110" />
             n8n
           </a>
         )}

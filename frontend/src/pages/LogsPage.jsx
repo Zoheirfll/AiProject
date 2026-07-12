@@ -33,9 +33,9 @@ export default function LogsPage() {
     <div className="mx-auto max-w-5xl space-y-6 p-8">
       <PageHeader title="Logs techniques" description="Journal applicatif (INFO / WARNING / ERROR), consultable et filtrable." />
 
-      <Card className="grid grid-cols-1 gap-4 sm:grid-cols-4">
+      <Card className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Niveau">
-          <Select value={level} onChange={(e) => setLevel(e.target.value)}>
+          <Select value={level} onChange={(e) => setLevel(e.target.value)} className="cursor-pointer">
             {LEVELS.map((opt) => (
               <option key={opt.value} value={opt.value}>
                 {opt.label}
@@ -51,10 +51,10 @@ export default function LogsPage() {
           />
         </Field>
         <Field label="Du">
-          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="cursor-pointer" />
         </Field>
         <Field label="Au">
-          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="cursor-pointer" />
         </Field>
       </Card>
 
@@ -68,30 +68,41 @@ export default function LogsPage() {
             <EmptyState title="Aucun log" description="Aucun événement technique ne correspond à ces filtres." />
           </div>
         ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-100 text-left text-slate-500 dark:border-slate-700 dark:text-slate-400">
-                <th className="px-5 py-3 font-medium">Date</th>
-                <th className="px-5 py-3 font-medium">Niveau</th>
-                <th className="px-5 py-3 font-medium">Type</th>
-                <th className="px-5 py-3 font-medium">Message</th>
-              </tr>
-            </thead>
-            <tbody>
-              {logsQuery.data?.map((row) => (
-                <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 dark:border-slate-700/60 dark:hover:bg-slate-700/30">
-                  <td className="whitespace-nowrap px-5 py-3 text-slate-500 dark:text-slate-400">
-                    {new Date(row.created_at).toLocaleString('fr-FR')}
-                  </td>
-                  <td className="px-5 py-3">
-                    <Badge tone={LEVEL_TONE[row.level] || 'neutral'}>{row.level}</Badge>
-                  </td>
-                  <td className="whitespace-nowrap px-5 py-3 text-slate-500 dark:text-slate-400">{row.logger_name || <EmptyCell />}</td>
-                  <td className="px-5 py-3 text-slate-700 dark:text-slate-200">{row.message}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead>
+                <tr className="border-b border-slate-100 text-left text-xs uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                  <th className="px-5 py-2.5 font-medium">Date</th>
+                  <th className="px-5 py-2.5 font-medium">Niveau</th>
+                  <th className="px-5 py-2.5 font-medium">Type</th>
+                  <th className="px-5 py-2.5 font-medium">Message</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {logsQuery.data?.map((row) => (
+                  <tr key={row.id} className="border-b border-slate-50 last:border-0 hover:bg-slate-50/60 dark:border-slate-700/60 dark:hover:bg-slate-700/30">
+                    <td className="whitespace-nowrap px-5 py-2 text-xs text-slate-500 tabular-nums dark:text-slate-400">
+                      {new Date(row.created_at).toLocaleString('fr-FR', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                      })}
+                    </td>
+                    <td className="px-5 py-2">
+                      <Badge tone={LEVEL_TONE[row.level] || 'neutral'}>{row.level}</Badge>
+                    </td>
+                    <td className="whitespace-nowrap px-5 py-2 font-mono text-xs text-slate-500 dark:text-slate-400">
+                      {row.logger_name || <EmptyCell />}
+                    </td>
+                    <td className="px-5 py-2 font-mono text-xs text-slate-700 dark:text-slate-200">{row.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

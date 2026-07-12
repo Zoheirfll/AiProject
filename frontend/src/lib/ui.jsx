@@ -3,10 +3,10 @@
 
 export function PageHeader({ title, description, actions }) {
   return (
-    <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div className="flex flex-col gap-4 border-b border-slate-200/70 pb-5 sm:flex-row sm:items-start sm:justify-between dark:border-slate-700/70">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
-        {description && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
+        <h1 className="text-2xl font-bold tracking-tight text-slate-900 dark:text-slate-50">{title}</h1>
+        {description && <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">{description}</p>}
       </div>
       {actions && <div className="flex shrink-0 gap-2">{actions}</div>}
     </div>
@@ -16,7 +16,7 @@ export function PageHeader({ title, description, actions }) {
 export function Card({ children, className = '', padded = true }) {
   return (
     <div
-      className={`rounded-xl border border-slate-200 bg-white shadow-[var(--shadow-card)] dark:border-slate-700 dark:bg-slate-800 ${
+      className={`rounded-xl border border-slate-200/80 bg-white shadow-[var(--shadow-card)] transition-shadow duration-200 dark:border-slate-700/80 dark:bg-slate-800 ${
         padded ? 'p-5' : ''
       } ${className}`}
     >
@@ -27,14 +27,15 @@ export function Card({ children, className = '', padded = true }) {
 
 export function Button({ variant = 'primary', size = 'md', className = '', ...props }) {
   const base =
-    'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-colors disabled:opacity-50 disabled:pointer-events-none focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2'
+    'inline-flex items-center justify-center gap-1.5 rounded-lg font-medium transition-all duration-150 active:scale-[0.97] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 cursor-pointer disabled:cursor-not-allowed'
   const sizes = {
     sm: 'px-2.5 py-1.5 text-xs',
     md: 'px-4 py-2 text-sm',
     lg: 'px-5 py-2.5 text-sm',
   }
   const variants = {
-    primary: 'bg-primary-600 text-white hover:bg-primary-700 focus-visible:ring-primary-500 shadow-sm',
+    primary:
+      'bg-linear-to-b from-primary-500 to-primary-600 text-white hover:from-primary-600 hover:to-primary-700 focus-visible:ring-primary-500 shadow-sm shadow-primary-600/20',
     secondary:
       'bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 focus-visible:ring-slate-400 dark:bg-slate-800 dark:text-slate-200 dark:border-slate-600 dark:hover:bg-slate-700',
     ghost: 'text-slate-600 hover:bg-slate-100 focus-visible:ring-slate-400 dark:text-slate-300 dark:hover:bg-slate-700',
@@ -85,17 +86,17 @@ export function Field({ label, hint, children }) {
 const inputBase =
   'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 transition-colors focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500'
 
-export function Input(props) {
-  return <input className={inputBase} {...props} />
+export function Input({ className = '', ...props }) {
+  return <input className={`${inputBase} ${className}`} {...props} />
 }
 
-export function Textarea(props) {
-  return <textarea className={`${inputBase} min-h-[100px] resize-y`} {...props} />
+export function Textarea({ className = '', ...props }) {
+  return <textarea className={`${inputBase} min-h-[100px] resize-y ${className}`} {...props} />
 }
 
-export function Select({ children, ...props }) {
+export function Select({ children, className = '', ...props }) {
   return (
-    <select className={inputBase} {...props}>
+    <select className={`${inputBase} ${className}`} {...props}>
       {children}
     </select>
   )
@@ -117,8 +118,8 @@ export function Checkbox({ label, ...props }) {
 export function Modal({ open, onClose, title, children }) {
   if (!open) return null
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-[2px]">
-      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-[var(--shadow-overlay)] dark:bg-slate-800">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4 backdrop-blur-sm animate-[fadeIn_150ms_ease-out]">
+      <div className="w-full max-w-2xl rounded-2xl bg-white shadow-[var(--shadow-overlay)] ring-1 ring-black/5 animate-[modalIn_180ms_cubic-bezier(0.16,1,0.3,1)] dark:bg-slate-800 dark:ring-white/10">
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 dark:border-slate-700">
           <h2 className="text-base font-semibold text-slate-900 dark:text-slate-50">{title}</h2>
           <IconButton label="Fermer" onClick={onClose}>

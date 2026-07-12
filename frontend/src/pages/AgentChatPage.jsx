@@ -12,7 +12,7 @@ export default function AgentChatPage() {
         title="Assistant RH"
         description="Posez vos questions en langage naturel — contrats, effectifs, départements, statistiques."
       />
-      <Card>
+      <Card className="shadow-[var(--shadow-card)]">
         <ChatPanel
           key={conversationId || 'new'}
           initialConversationId={conversationId || null}

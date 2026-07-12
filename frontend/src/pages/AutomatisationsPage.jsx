@@ -89,71 +89,89 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
   return (
     <Modal open={open} onClose={onClose} title={editingRegle ? `Modifier "${editingRegle.nom}"` : "Nouvelle règle d'automatisation"}>
       <form onSubmit={handleSubmit} className="space-y-4">
-        <Field label="Nom de la règle">
-          <Input
-            placeholder="Ex: Alerte contrats CDD"
-            value={form.nom}
-            onChange={(e) => setForm({ ...form, nom: e.target.value })}
-            required
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="Délais d'alerte (jours)" hint="Séparés par des virgules.">
+        <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Identité de la règle
+          </h4>
+          <Field label="Nom de la règle">
             <Input
-              placeholder="45, 20, 7"
-              value={form.delais_jours}
-              onChange={(e) => setForm({ ...form, delais_jours: e.target.value })}
+              placeholder="Ex: Alerte contrats CDD"
+              value={form.nom}
+              onChange={(e) => setForm({ ...form, nom: e.target.value })}
+              required
             />
           </Field>
-          <Field label="Départements filtrés">
+          <Checkbox
+            label="Règle active"
+            checked={form.actif}
+            onChange={(e) => setForm({ ...form, actif: e.target.checked })}
+          />
+        </div>
+
+        <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Déclenchement
+          </h4>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="Délais d'alerte (jours)" hint="Séparés par des virgules.">
+              <Input
+                placeholder="45, 20, 7"
+                value={form.delais_jours}
+                onChange={(e) => setForm({ ...form, delais_jours: e.target.value })}
+              />
+            </Field>
+            <Field label="Départements filtrés">
+              <Input
+                placeholder="IT, RH (vide = tous)"
+                value={form.departements_filtre}
+                onChange={(e) => setForm({ ...form, departements_filtre: e.target.value })}
+              />
+            </Field>
+          </div>
+        </div>
+
+        <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Destinataires
+          </h4>
+          <Field label="Destinataires" hint="Emails fixes ou alias departement:NomDuDept.">
             <Input
-              placeholder="IT, RH (vide = tous)"
-              value={form.departements_filtre}
-              onChange={(e) => setForm({ ...form, departements_filtre: e.target.value })}
+              placeholder="rh@example.com, departement:IT"
+              value={form.destinataires}
+              onChange={(e) => setForm({ ...form, destinataires: e.target.value })}
             />
+          </Field>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <Field label="CC">
+              <Input value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} />
+            </Field>
+            <Field label="BCC">
+              <Input value={form.bcc} onChange={(e) => setForm({ ...form, bcc: e.target.value })} />
+            </Field>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+            Contenu du mail
+          </h4>
+          <Field label="Prompt personnalisé (optionnel)">
+            <Textarea
+              placeholder="Variables: {{nom}} {{departement}} {{date_fin}} {{jours_restants}}"
+              value={form.prompt_override}
+              onChange={(e) => setForm({ ...form, prompt_override: e.target.value })}
+            />
+          </Field>
+
+          <Field label="Format du mail" hint="HTML génère un email mis en forme (couleurs, titres) au lieu de texte brut.">
+            <Select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })}>
+              <option value="TEXTE">Texte brut</option>
+              <option value="HTML">HTML riche</option>
+            </Select>
           </Field>
         </div>
 
-        <Field label="Destinataires" hint="Emails fixes ou alias departement:NomDuDept.">
-          <Input
-            placeholder="rh@example.com, departement:IT"
-            value={form.destinataires}
-            onChange={(e) => setForm({ ...form, destinataires: e.target.value })}
-          />
-        </Field>
-
-        <div className="grid grid-cols-2 gap-4">
-          <Field label="CC">
-            <Input value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} />
-          </Field>
-          <Field label="BCC">
-            <Input value={form.bcc} onChange={(e) => setForm({ ...form, bcc: e.target.value })} />
-          </Field>
-        </div>
-
-        <Field label="Prompt personnalisé (optionnel)">
-          <Textarea
-            placeholder="Variables: {{nom}} {{departement}} {{date_fin}} {{jours_restants}}"
-            value={form.prompt_override}
-            onChange={(e) => setForm({ ...form, prompt_override: e.target.value })}
-          />
-        </Field>
-
-        <Field label="Format du mail" hint="HTML génère un email mis en forme (couleurs, titres) au lieu de texte brut.">
-          <Select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })}>
-            <option value="TEXTE">Texte brut</option>
-            <option value="HTML">HTML riche</option>
-          </Select>
-        </Field>
-
-        <Checkbox
-          label="Règle active"
-          checked={form.actif}
-          onChange={(e) => setForm({ ...form, actif: e.target.checked })}
-        />
-
-        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4">
+        <div className="flex justify-end gap-2 border-t border-slate-100 pt-4 dark:border-slate-800">
           <Button type="button" variant="ghost" onClick={onClose}>Annuler</Button>
           <Button type="submit" disabled={isPending || !form.nom}>
             {isPending && <Spinner />}
@@ -175,34 +193,48 @@ function ApercuModal({ regleId, onClose }) {
   return (
     <Modal open={regleId != null} onClose={onClose} title="Aperçu avant activation">
       {apercuQuery.isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement…</div>
+        <div className="flex items-center gap-2 py-6 text-sm text-slate-400"><Spinner /> Chargement…</div>
       ) : (
-        <div className="space-y-4">
+        <div className="space-y-5">
           <div>
-            <h4 className="mb-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-              Employés concernés ({apercuQuery.data?.employes_concernes?.length || 0})
+            <h4 className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Employés concernés
+              <Badge tone="primary">{apercuQuery.data?.employes_concernes?.length || 0}</Badge>
             </h4>
             {apercuQuery.data?.employes_concernes?.length ? (
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-1.5 text-sm">
                 {apercuQuery.data.employes_concernes.map((e, i) => (
-                  <li key={i} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
-                    <span>{e.nom} — {e.departement || 'N/A'} — J-{e.jours_restants} ({e.date_fin})</span>
+                  <li
+                    key={i}
+                    className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"
+                  >
+                    <span className="text-slate-700 dark:text-slate-300">
+                      {e.nom} — {e.departement || 'N/A'} — J-{e.jours_restants} ({e.date_fin})
+                    </span>
                     {e.deja_envoye && <Badge tone="neutral">déjà alerté</Badge>}
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="text-sm text-slate-400">Aucun employé concerné pour le moment.</p>
+              <p className="rounded-lg border border-dashed border-slate-200 px-3 py-4 text-center text-sm text-slate-400 dark:border-slate-700 dark:text-slate-500">
+                Aucun employé concerné pour le moment.
+              </p>
             )}
           </div>
           <div>
-            <h4 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Destinataires résolus</h4>
-            <p className="text-sm text-slate-500">{apercuQuery.data?.destinataires_resolus?.join(', ') || 'aucun'}</p>
+            <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+              Destinataires résolus
+            </h4>
+            <p className="text-sm text-slate-600 dark:text-slate-300">
+              {apercuQuery.data?.destinataires_resolus?.join(', ') || 'aucun'}
+            </p>
           </div>
           {apercuQuery.data?.prompt_rendu && (
             <div>
-              <h4 className="mb-1 text-sm font-medium text-slate-700 dark:text-slate-300">Prompt rendu (1er cas)</h4>
-              <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 text-xs text-slate-600 dark:bg-slate-700/40 dark:text-slate-300">
+              <h4 className="mb-1 text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
+                Prompt rendu (1er cas)
+              </h4>
+              <pre className="whitespace-pre-wrap rounded-lg bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                 {apercuQuery.data.prompt_rendu}
               </pre>
             </div>
@@ -223,15 +255,23 @@ function HistoriqueModal({ regleId, onClose }) {
   return (
     <Modal open={regleId != null} onClose={onClose} title="Historique des déclenchements">
       {historiqueQuery.isLoading ? (
-        <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement…</div>
+        <div className="flex items-center gap-2 py-6 text-sm text-slate-400"><Spinner /> Chargement…</div>
       ) : historiqueQuery.data?.length === 0 ? (
-        <p className="text-sm text-slate-400">Aucun déclenchement pour cette règle.</p>
+        <EmptyState
+          title="Aucun déclenchement"
+          description="Cette règle n'a encore envoyé aucune alerte."
+        />
       ) : (
-        <ul className="space-y-1 text-sm">
+        <ul className="max-h-96 space-y-1.5 overflow-y-auto text-sm">
           {historiqueQuery.data?.map((a) => (
-            <li key={a.id} className="flex items-center justify-between rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-700/40">
-              <span>{a.employee_nom} — J-{a.delai_jours} ({a.date_fin})</span>
-              <span className="text-slate-400">{new Date(a.date_envoi).toLocaleString('fr-FR')}</span>
+            <li
+              key={a.id}
+              className="flex flex-col gap-0.5 rounded-lg bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-800/60"
+            >
+              <span className="text-slate-700 dark:text-slate-300">
+                {a.employee_nom} — J-{a.delai_jours} ({a.date_fin})
+              </span>
+              <span className="text-xs text-slate-400">{new Date(a.date_envoi).toLocaleString('fr-FR')}</span>
             </li>
           ))}
         </ul>
@@ -248,7 +288,7 @@ function TestModal({ regle, onClose, onConfirm, isPending }) {
   return (
     <Modal open={!!regle} onClose={onClose} title={`Tester "${regle.nom}"`}>
       <div className="space-y-4">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-700 dark:bg-primary-950/40 dark:text-primary-300">
           Génère et envoie un mail de test (sans marquer d'alerte comme envoyée). Laissez vide pour utiliser les
           destinataires réels de la règle.
         </p>
@@ -273,43 +313,64 @@ function TestModal({ regle, onClose, onConfirm, isPending }) {
 
 function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onEdit, onDelete, isRunning, isDrh }) {
   return (
-    <Card className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div className="flex gap-3">
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-300">
+    <Card className="flex h-full flex-col gap-4">
+      <div className="flex items-start gap-3">
+        <div
+          className={`mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-lg ${
+            regle.actif
+              ? 'bg-primary-50 text-primary-600 dark:bg-primary-950/50 dark:text-primary-300'
+              : 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500'
+          }`}
+        >
           <BoltIcon />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-semibold text-slate-900 dark:text-slate-50">{regle.nom}</h3>
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="truncate font-semibold text-slate-900 dark:text-slate-50">{regle.nom}</h3>
             <Badge tone={regle.actif ? 'success' : 'neutral'}>{regle.actif ? 'Active' : 'Inactive'}</Badge>
           </div>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Délais: {regle.delais_jours.join(', ') || '—'} jour(s)
-            {regle.departements_filtre?.length > 0 && <> · Départements: {regle.departements_filtre.join(', ')}</>}
-          </p>
-          <p className="mt-1 text-sm text-slate-400 dark:text-slate-500">
-            Destinataires: {regle.destinataires?.join(', ') || 'aucun'}
-            {isDrh && regle.cree_par_username && <> · Créée par: {regle.cree_par_username}</>}
-          </p>
+
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            <Badge tone="neutral">Délais: {regle.delais_jours.join(', ') || '—'} j</Badge>
+            {regle.departements_filtre?.length > 0 ? (
+              <Badge tone="neutral">{regle.departements_filtre.join(', ')}</Badge>
+            ) : (
+              <Badge tone="neutral">Tous départements</Badge>
+            )}
+            <Badge tone="primary">{regle.destinataires?.length || 0} destinataire(s)</Badge>
+          </div>
+
+          {isDrh && regle.cree_par_username && (
+            <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">Créée par {regle.cree_par_username}</p>
+          )}
         </div>
       </div>
-      <div className="flex shrink-0 flex-wrap gap-2">
-        <Button variant="secondary" size="sm" onClick={onOpenApercu}>Aperçu</Button>
-        <Button variant="secondary" size="sm" onClick={onOpenHistorique}>
-          <HistoryIcon className="h-3.5 w-3.5" /> Historique
-        </Button>
-        <Button variant="secondary" size="sm" onClick={onRun} disabled={isRunning}>
-          {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
-        </Button>
-        <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
-        <IconButton label="Modifier" onClick={onEdit}>
-          <EditIcon />
-        </IconButton>
-        {isDrh && (
-          <IconButton label="Supprimer" onClick={onDelete} className="hover:bg-red-50 hover:text-red-600">
-            <TrashIcon />
+
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" size="sm" onClick={onOpenApercu}>Aperçu</Button>
+          <Button variant="secondary" size="sm" onClick={onOpenHistorique}>
+            <HistoryIcon className="h-3.5 w-3.5" /> Historique
+          </Button>
+          <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
+          <Button size="sm" onClick={onRun} disabled={isRunning}>
+            {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
+          </Button>
+        </div>
+        <div className="flex shrink-0 gap-1 border-l border-slate-100 pl-2 dark:border-slate-800">
+          <IconButton label="Modifier" onClick={onEdit}>
+            <EditIcon />
           </IconButton>
-        )}
+          {isDrh && (
+            <IconButton
+              label="Supprimer"
+              onClick={onDelete}
+              className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+            >
+              <TrashIcon />
+            </IconButton>
+          )}
+        </div>
       </div>
     </Card>
   )
@@ -433,7 +494,7 @@ export default function AutomatisationsPage() {
         isPending={testMutation.isPending}
       />
 
-      <div className="grid gap-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         {reglesQuery.data?.map((regle) => (
           <RuleCard
             key={regle.id}
@@ -455,15 +516,17 @@ export default function AutomatisationsPage() {
         ))}
 
         {reglesQuery.data?.length === 0 && (
-          <EmptyState
-            title="Aucune règle configurée"
-            description="Créez une règle pour automatiser les alertes de contrats expirants."
-            action={
-              <Button variant="secondary" onClick={() => setModalOpen(true)}>
-                <PlusIcon /> Nouvelle règle
-              </Button>
-            }
-          />
+          <div className="md:col-span-2 xl:col-span-3">
+            <EmptyState
+              title="Aucune règle configurée"
+              description="Créez une règle pour automatiser les alertes de contrats expirants."
+              action={
+                <Button variant="secondary" onClick={() => setModalOpen(true)}>
+                  <PlusIcon /> Nouvelle règle
+                </Button>
+              }
+            />
+          </div>
         )}
       </div>
     </div>

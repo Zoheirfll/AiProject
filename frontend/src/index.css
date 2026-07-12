@@ -3,40 +3,81 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 @theme {
-  --color-primary-50: #f5f3ff;
-  --color-primary-100: #ede9fe;
-  --color-primary-200: #ddd6fe;
-  --color-primary-300: #c4b5fd;
-  --color-primary-400: #a78bfa;
-  --color-primary-500: #8b5cf6;
-  --color-primary-600: #7c3aed;
-  --color-primary-700: #6d28d9;
-  --color-primary-800: #5b21b6;
-  --color-primary-900: #4c1d95;
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
 
-  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, sans-serif;
+  --color-accent-50: #ecfdf5;
+  --color-accent-100: #d1fae5;
+  --color-accent-300: #6ee7b7;
+  --color-accent-500: #10b981;
+  --color-accent-600: #059669;
+  --color-accent-700: #047857;
+
+  --font-sans: -apple-system, 'Segoe UI', 'Inter', ui-sans-serif, system-ui, Roboto, Helvetica, Arial, sans-serif;
 
   --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
-  --shadow-raised: 0 4px 12px -2px rgb(15 23 42 / 0.08), 0 2px 4px -2px rgb(15 23 42 / 0.06);
-  --shadow-overlay: 0 20px 40px -8px rgb(15 23 42 / 0.25);
+  --shadow-raised: 0 8px 24px -6px rgb(30 64 175 / 0.12), 0 2px 6px -2px rgb(15 23 42 / 0.06);
+  --shadow-overlay: 0 24px 48px -10px rgb(15 23 42 / 0.28);
 }
 
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    font-family: var(--font-sans);
   }
 
   body {
+    font-size: 15px;
+    line-height: 1.55;
+    letter-spacing: -0.006em;
     background-color: var(--color-slate-50, #f8fafc);
+    background-image: radial-gradient(circle at 0% 0%, rgb(59 130 246 / 0.05), transparent 55%),
+      radial-gradient(circle at 100% 0%, rgb(16 185 129 / 0.05), transparent 45%);
+    background-attachment: fixed;
   }
 
   .dark body {
     background-color: var(--color-slate-900, #0f172a);
+    background-image: radial-gradient(circle at 0% 0%, rgb(59 130 246 / 0.08), transparent 55%),
+      radial-gradient(circle at 100% 0%, rgb(16 185 129 / 0.06), transparent 45%);
   }
 
   ::selection {
     background-color: var(--color-primary-200);
+  }
+
+  * {
+    scrollbar-color: var(--color-slate-300, #cbd5e1) transparent;
+  }
+
+  .dark * {
+    scrollbar-color: var(--color-slate-600, #475569) transparent;
+  }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
   }
 }
 
