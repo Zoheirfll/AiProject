@@ -40,10 +40,30 @@ import {
   TrashIcon,
 } from '../lib/ui'
 
+const OPERATEURS = [
+  { value: 'INFERIEUR_A', label: 'Inférieur à' },
+  { value: 'SUPERIEUR_A', label: 'Supérieur à' },
+  { value: 'EGAL', label: 'Égal à' },
+  { value: 'CONTIENT', label: 'Contient' },
+  { value: 'VIDE', label: 'Est vide / absent' },
+]
+
+const OPERATEUR_SYMBOLE = {
+  INFERIEUR_A: '<',
+  SUPERIEUR_A: '>',
+  EGAL: '=',
+  CONTIENT: '⊃',
+  VIDE: 'est vide',
+}
+
 const emptyForm = {
   nom: '',
   actif: true,
+  type_condition: 'CONTRAT',
   delais_jours: ['45', '20', '7'],
+  champ_cible: '',
+  operateur: 'INFERIEUR_A',
+  valeur_seuil: '',
   departements_filtre: [],
   destinataires: [],
   cc: [],
@@ -56,7 +76,11 @@ function regleToForm(regle) {
   return {
     nom: regle.nom,
     actif: regle.actif,
+    type_condition: regle.type_condition || 'CONTRAT',
     delais_jours: regle.delais_jours.map(String),
+    champ_cible: regle.champ_cible || '',
+    operateur: regle.operateur || 'INFERIEUR_A',
+    valeur_seuil: regle.valeur_seuil || '',
     departements_filtre: regle.departements_filtre || [],
     destinataires: regle.destinataires || [],
     cc: regle.cc || [],
@@ -78,7 +102,11 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
     onSubmit({
       nom: form.nom,
       actif: form.actif,
+      type_condition: form.type_condition,
       delais_jours: form.delais_jours.map(Number).filter((n) => !Number.isNaN(n)),
+      champ_cible: form.champ_cible,
+      operateur: form.type_condition === 'CHAMP_PERSONNALISE' ? form.operateur : '',
+      valeur_seuil: form.valeur_seuil,
       departements_filtre: form.departements_filtre,
       destinataires: form.destinataires,
       cc: form.cc,
@@ -92,8 +120,9 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
     <Modal open={open} onClose={onClose} title={editingRegle ? `Modifier "${editingRegle.nom}"` : "Nouvelle règle d'automatisation"}>
       <form onSubmit={handleSubmit} className="space-y-4">
         <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
-          Une alerte part pour chaque délai renseigné (ex: 45, 20 et 7 jours avant échéance) et par contrat
-          concerné — pas d'envoi en double, une alerte déjà envoyée pour un délai donné ne repart pas.
+          {form.type_condition === 'CHAMP_PERSONNALISE'
+            ? "La règle se déclenche sur n'importe quelle colonne de vos fichiers importés (congés, formations…), pas seulement les contrats. Pas d'envoi en double : un employé déjà alerté aujourd'hui ne repart pas avant demain."
+            : "Une alerte part pour chaque délai renseigné (ex: 45, 20 et 7 jours avant échéance) et par contrat concerné — pas d'envoi en double, une alerte déjà envoyée pour un délai donné ne repart pas."}
         </p>
         <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
@@ -118,7 +147,24 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Déclenchement
           </h4>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field
+            label="Type de condition"
+            hint={
+              form.type_condition === 'CHAMP_PERSONNALISE'
+                ? "Se déclenche sur n'importe quelle colonne de vos fichiers importés (congés, formations…), pas seulement les contrats."
+                : 'Se déclenche sur la date de fin des contrats.'
+            }
+          >
+            <Select
+              value={form.type_condition}
+              onChange={(e) => setForm({ ...form, type_condition: e.target.value })}
+            >
+              <option value="CONTRAT">Contrat expirant</option>
+              <option value="CHAMP_PERSONNALISE">Champ personnalisé</option>
+            </Select>
+          </Field>
+
+          {form.type_condition === 'CONTRAT' ? (
             <Field label="Délais d'alerte (jours)" hint="Entrée ou virgule pour ajouter.">
               <TagInput
                 placeholder="45, 20, 7"
@@ -126,14 +172,42 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
                 onChange={(v) => setForm({ ...form, delais_jours: v })}
               />
             </Field>
-            <Field label="Départements filtrés" hint="Vide = tous les départements.">
-              <TagInput
-                placeholder="IT, RH…"
-                value={form.departements_filtre}
-                onChange={(v) => setForm({ ...form, departements_filtre: v })}
-              />
-            </Field>
-          </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <Field label="Champ à surveiller" hint='Ex: "jours_conges_restants".'>
+                <Input
+                  placeholder="Nom de la colonne Excel"
+                  value={form.champ_cible}
+                  onChange={(e) => setForm({ ...form, champ_cible: e.target.value })}
+                  required={form.type_condition === 'CHAMP_PERSONNALISE'}
+                />
+              </Field>
+              <Field label="Condition">
+                <Select value={form.operateur} onChange={(e) => setForm({ ...form, operateur: e.target.value })}>
+                  {OPERATEURS.map((op) => (
+                    <option key={op.value} value={op.value}>{op.label}</option>
+                  ))}
+                </Select>
+              </Field>
+              {form.operateur !== 'VIDE' && (
+                <Field label="Valeur">
+                  <Input
+                    placeholder="Ex: 5"
+                    value={form.valeur_seuil}
+                    onChange={(e) => setForm({ ...form, valeur_seuil: e.target.value })}
+                  />
+                </Field>
+              )}
+            </div>
+          )}
+
+          <Field label="Départements filtrés" hint="Vide = tous les départements.">
+            <TagInput
+              placeholder="IT, RH…"
+              value={form.departements_filtre}
+              onChange={(v) => setForm({ ...form, departements_filtre: v })}
+            />
+          </Field>
         </div>
 
         <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
@@ -163,7 +237,11 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
           </h4>
           <Field label="Prompt personnalisé (optionnel)">
             <Textarea
-              placeholder="Variables: {{nom}} {{departement}} {{date_fin}} {{jours_restants}}"
+              placeholder={
+                form.type_condition === 'CHAMP_PERSONNALISE'
+                  ? 'Variables: {{nom}} {{departement}} {{champ}} {{valeur}}'
+                  : 'Variables: {{nom}} {{departement}} {{date_fin}} {{jours_restants}}'
+              }
               value={form.prompt_override}
               onChange={(e) => setForm({ ...form, prompt_override: e.target.value })}
             />
@@ -215,7 +293,8 @@ function ApercuModal({ regleId, onClose }) {
                     className="flex items-center justify-between gap-3 rounded-lg bg-slate-50 px-3 py-2 dark:bg-slate-800/60"
                   >
                     <span className="text-slate-700 dark:text-slate-300">
-                      {e.nom} — {e.departement || 'N/A'} — J-{e.jours_restants} ({e.date_fin})
+                      {e.nom} — {e.departement || 'N/A'} —{' '}
+                      {e.champ ? `${e.champ} = ${e.valeur}` : `J-${e.jours_restants} (${e.date_fin})`}
                     </span>
                     {e.deja_envoye && <Badge tone="neutral">déjà alerté</Badge>}
                   </li>
@@ -275,7 +354,8 @@ function HistoriqueModal({ regleId, onClose }) {
               className="flex flex-col gap-0.5 rounded-lg bg-slate-50 px-3 py-2 sm:flex-row sm:items-center sm:justify-between dark:bg-slate-800/60"
             >
               <span className="text-slate-700 dark:text-slate-300">
-                {a.employee_nom} — J-{a.delai_jours} ({a.date_fin})
+                {a.employee_nom}
+                {a.delai_jours != null && ` — J-${a.delai_jours} (${a.date_fin})`}
               </span>
               <span className="text-xs text-slate-400">{new Date(a.date_envoi).toLocaleString('fr-FR')}</span>
             </li>
@@ -367,7 +447,13 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
 
           <div className="mt-2 flex flex-wrap gap-1.5">
             {regle.actif && <ConcernedBadge regleId={regle.id} />}
-            <Badge tone="neutral">Délais: {regle.delais_jours.join(', ') || '—'} j</Badge>
+            {regle.type_condition === 'CHAMP_PERSONNALISE' ? (
+              <Badge tone="primary">
+                {regle.champ_cible || '?'} {OPERATEUR_SYMBOLE[regle.operateur] || ''} {regle.operateur !== 'VIDE' ? regle.valeur_seuil : ''}
+              </Badge>
+            ) : (
+              <Badge tone="neutral">Délais: {regle.delais_jours.join(', ') || '—'} j</Badge>
+            )}
             {regle.departements_filtre?.length > 0 ? (
               <Badge tone="neutral">{regle.departements_filtre.join(', ')}</Badge>
             ) : (

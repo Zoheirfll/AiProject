@@ -20,15 +20,22 @@ class AutomatisationConfigSerializer(serializers.ModelSerializer):
 
 class AlerteEnvoyeeSerializer(serializers.ModelSerializer):
     employee_nom = serializers.SerializerMethodField()
-    date_fin = serializers.DateField(source="contract.date_fin", read_only=True)
+    date_fin = serializers.SerializerMethodField()
 
     class Meta:
         model = AlerteEnvoyee
-        fields = ["id", "contract", "employee_nom", "date_fin", "delai_jours", "date_envoi"]
+        fields = ["id", "contract", "employee_nom", "date_fin", "delai_jours", "cle_dedup", "date_envoi"]
         read_only_fields = fields
 
     def get_employee_nom(self, obj):
-        return f"{obj.contract.employee.prenom} {obj.contract.employee.nom}"
+        if obj.employee_id:
+            return f"{obj.employee.prenom} {obj.employee.nom}"
+        if obj.contract_id:
+            return f"{obj.contract.employee.prenom} {obj.contract.employee.nom}"
+        return obj.cle_dedup
+
+    def get_date_fin(self, obj):
+        return obj.contract.date_fin if obj.contract_id else None
 
 
 class RegleAutomatisationSerializer(serializers.ModelSerializer):
@@ -40,7 +47,11 @@ class RegleAutomatisationSerializer(serializers.ModelSerializer):
             "id",
             "nom",
             "actif",
+            "type_condition",
             "delais_jours",
+            "champ_cible",
+            "operateur",
+            "valeur_seuil",
             "departements_filtre",
             "destinataires",
             "cc",

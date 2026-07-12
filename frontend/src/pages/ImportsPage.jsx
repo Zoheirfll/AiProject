@@ -495,6 +495,7 @@ export default function ImportsPage() {
   const [success, setSuccess] = useState('')
   const [progress, setProgress] = useState(0)
   const [isDragging, setIsDragging] = useState(false)
+  const [manualUploadOpen, setManualUploadOpen] = useState(false)
   const queryClient = useQueryClient()
 
   const uploadMutation = useMutation({
@@ -554,81 +555,95 @@ export default function ImportsPage() {
     <div className="mx-auto max-w-5xl space-y-8 p-8">
       <PageHeader
         title="Import Excel"
-        description="Seuls matricule, nom et prenom sont requis. Les autres colonnes reconnues (email, departement, poste, categorie, num_contrat, date_embauche, date_fin_contrat) sont mappées automatiquement — toute autre colonne (congés, formations, évaluations…) est importée telle quelle, sans configuration."
+        description="Le dossier surveillé est le flux principal : tout fichier déposé y est lu et importé automatiquement, sans action humaine. Seuls matricule, nom et prenom sont requis — toute autre colonne (congés, formations, évaluations…) est conservée telle quelle."
         onHelp={help.reopen}
         helpVisible={!help.dismissed}
       />
 
       <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
-        Déposez un fichier Excel ou configurez un dossier surveillé (scanné toutes les 45s) : les imports
-        sont traités automatiquement. Le bouton "Télécharger le modèle" montre le format attendu — et rappelle
-        que vous n'êtes pas limité aux colonnes reconnues, tout le reste est conservé tel quel par employé.
+        Configurez le dossier surveillé ci-dessous : tout fichier .xlsx/.xls qui y est déposé est lu et importé
+        automatiquement (vérifié toutes les 45s), sans que personne n'ait besoin d'ouvrir cette page. L'import
+        manuel plus bas n'est qu'un dépannage ponctuel (un fichier à passer une seule fois, hors du dossier).
       </HelpBanner>
 
-      <Card
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        className={`border-2 border-dashed bg-linear-to-br transition-colors duration-150 ${
-          isDragging
-            ? 'border-primary-500 from-primary-100/80 via-primary-50/40 to-white dark:border-primary-400 dark:from-primary-950/50 dark:via-slate-800 dark:to-slate-800'
-            : 'border-slate-300 from-primary-50/70 via-white to-white dark:border-slate-600 dark:from-primary-950/30 dark:via-slate-800 dark:to-slate-800'
-        }`}
-      >
-        <div className="flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div
-              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white shadow-sm transition-transform duration-150 ${
-                isDragging ? 'scale-110' : ''
-              }`}
-            >
-              <UploadIcon className="h-5 w-5" />
-            </div>
-            <div>
-              <p className="font-medium text-slate-900 dark:text-slate-50">
-                {isDragging ? 'Déposez le fichier ici' : 'Glissez-déposez un fichier .xlsx, ou choisissez-en un'}
-              </p>
-              <p className="text-sm text-slate-500 dark:text-slate-400">Les employés sont créés ou mis à jour automatiquement.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <a
-              href={`${api.defaults.baseURL}/api/imports/modele/`}
-              className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
-            >
-              <DownloadIcon /> Télécharger le modèle
-            </a>
-            <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2">
-              {uploadMutation.isPending && <Spinner />}
-              {uploadMutation.isPending ? 'Import en cours…' : 'Choisir un fichier'}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".xlsx,.xls"
-                className="hidden"
-                onChange={handleFileChange}
-                disabled={uploadMutation.isPending}
-              />
-            </label>
-          </div>
-        </div>
-        {uploadMutation.isPending && (
-          <div className="mt-4 space-y-1">
-            <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
-              <div
-                className="h-full rounded-full bg-linear-to-r from-primary-500 to-primary-600 transition-all duration-200"
-                style={{ width: `${progress}%` }}
-              />
-            </div>
-            <p className="text-right text-xs font-medium text-slate-500 dark:text-slate-400">{progress}%</p>
-          </div>
-        )}
-      </Card>
+      {isDrh && <MappingConfig />}
 
       {success && <Toast tone="success" message={success} onDismiss={() => setSuccess('')} />}
       {error && <Toast tone="error" message={error} onDismiss={() => setError('')} />}
 
-      {isDrh && <MappingConfig />}
+      <section className="space-y-3">
+        <button
+          type="button"
+          onClick={() => setManualUploadOpen((o) => !o)}
+          className="flex w-full cursor-pointer items-center gap-2 text-left text-sm font-medium text-slate-500 transition-colors hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+          aria-expanded={manualUploadOpen}
+        >
+          <ChevronIcon className={`h-3.5 w-3.5 transition-transform duration-200 ${manualUploadOpen ? 'rotate-90' : ''}`} />
+          Import manuel ponctuel (dépannage — hors dossier surveillé)
+        </button>
+
+        {manualUploadOpen && (
+          <Card
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            className={`border-2 border-dashed bg-linear-to-br transition-colors duration-150 ${
+              isDragging
+                ? 'border-primary-500 from-primary-100/80 via-primary-50/40 to-white dark:border-primary-400 dark:from-primary-950/50 dark:via-slate-800 dark:to-slate-800'
+                : 'border-slate-300 from-primary-50/70 via-white to-white dark:border-slate-600 dark:from-primary-950/30 dark:via-slate-800 dark:to-slate-800'
+            }`}
+          >
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-linear-to-br from-primary-500 to-primary-600 text-white shadow-sm transition-transform duration-150 ${
+                    isDragging ? 'scale-110' : ''
+                  }`}
+                >
+                  <UploadIcon className="h-5 w-5" />
+                </div>
+                <div>
+                  <p className="font-medium text-slate-900 dark:text-slate-50">
+                    {isDragging ? 'Déposez le fichier ici' : 'Glissez-déposez un fichier .xlsx, ou choisissez-en un'}
+                  </p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Les employés sont créés ou mis à jour automatiquement.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <a
+                  href={`${api.defaults.baseURL}/api/imports/modele/`}
+                  className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm transition-colors hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  <DownloadIcon /> Télécharger le modèle
+                </a>
+                <label className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-sm font-medium text-white shadow-sm transition-colors hover:bg-primary-700 focus-within:outline-none focus-within:ring-2 focus-within:ring-primary-500 focus-within:ring-offset-2">
+                  {uploadMutation.isPending && <Spinner />}
+                  {uploadMutation.isPending ? 'Import en cours…' : 'Choisir un fichier'}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    className="hidden"
+                    onChange={handleFileChange}
+                    disabled={uploadMutation.isPending}
+                  />
+                </label>
+              </div>
+            </div>
+            {uploadMutation.isPending && (
+              <div className="mt-4 space-y-1">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-700">
+                  <div
+                    className="h-full rounded-full bg-linear-to-r from-primary-500 to-primary-600 transition-all duration-200"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <p className="text-right text-xs font-medium text-slate-500 dark:text-slate-400">{progress}%</p>
+              </div>
+            )}
+          </Card>
+        )}
+      </section>
 
       <ImportHistorySection />
 

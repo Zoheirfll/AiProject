@@ -69,6 +69,122 @@ def _rendre_prompt(regle, employee, contract, jours_restants):
     )
 
 
+def _valeur_champ(employee, champ):
+    """CHAMP_PERSONNALISE lookup: any Excel column (donnees_supplementaires)
+    first, falling back to a direct Employee attribute (e.g. "poste")."""
+    if champ in employee.donnees_supplementaires:
+        return employee.donnees_supplementaires[champ]
+    return getattr(employee, champ, None)
+
+
+def _evaluer_condition_champ(regle, employee):
+    """Returns the field's current value if the rule's condition holds for
+    this employee, else None. Numeric operators fall back to string
+    comparison if the value/threshold aren't parseable as numbers."""
+    valeur = _valeur_champ(employee, regle.champ_cible)
+    op = regle.operateur
+
+    if op == RegleAutomatisation.Operateur.VIDE:
+        return valeur if (valeur is None or valeur == "") else None
+
+    if valeur is None or valeur == "":
+        return None
+
+    seuil = regle.valeur_seuil
+
+    if op in (RegleAutomatisation.Operateur.INFERIEUR_A, RegleAutomatisation.Operateur.SUPERIEUR_A):
+        try:
+            valeur_num, seuil_num = float(valeur), float(seuil)
+        except (TypeError, ValueError):
+            return None
+        if op == RegleAutomatisation.Operateur.INFERIEUR_A and valeur_num < seuil_num:
+            return valeur
+        if op == RegleAutomatisation.Operateur.SUPERIEUR_A and valeur_num > seuil_num:
+            return valeur
+        return None
+
+    if op == RegleAutomatisation.Operateur.EGAL:
+        return valeur if str(valeur).strip().lower() == seuil.strip().lower() else None
+
+    if op == RegleAutomatisation.Operateur.CONTIENT:
+        return valeur if seuil.strip().lower() in str(valeur).lower() else None
+
+    return None
+
+
+def _employes_pour_regle_champ(regle):
+    employes = Employee.objects.filter(actif=True)
+    if regle.departements_filtre:
+        employes = employes.filter(departement__in=regle.departements_filtre)
+    return employes
+
+
+def _envoyer_alerte_champ(regle, employee, valeur, marquer_alerte=True, test_email=None):
+    destinataires = [test_email] if test_email else _resoudre_liste(regle.destinataires)
+    cc = [] if test_email else _resoudre_liste(regle.cc)
+    bcc = [] if test_email else _resoudre_liste(regle.bcc)
+
+    sujet_demande = f"Alerte: {employee.prenom} {employee.nom} — {regle.champ_cible} = {valeur}"
+
+    mail_log = MailLog.objects.create(
+        employee=employee, regle=regle, sujet_demande=sujet_demande, cc=cc, bcc=bcc,
+        format=regle.format,
+    )
+
+    template = regle.prompt_override or AutomatisationConfig.get_solo().prompt_global
+    prompt_final = _substituer_variables(
+        template,
+        {
+            "nom": f"{employee.prenom} {employee.nom}",
+            "departement": employee.departement or "N/A",
+            "champ": regle.champ_cible,
+            "valeur": str(valeur),
+        },
+    ) if template else None
+
+    try:
+        result = generate_mail_content(employee, sujet_demande, prompt_final, format=regle.format)
+    except OllamaGenerationError as exc:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+        mail_log.save()
+        logger.error("Erreur Ollama lors de l'alerte '%s': %s", regle.nom, exc)
+        from integrations.notifications import notify
+
+        notify({"type": "erreur_ollama", "contexte": f"règle '{regle.nom}'", "detail": str(exc)})
+        return mail_log
+
+    mail_log.subject = result["subject"]
+    mail_log.body = result["body"]
+
+    if not destinataires:
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = "Aucun destinataire résolu pour cette règle."
+        mail_log.save()
+        return mail_log
+
+    try:
+        send_mail_log(mail_log, destinataires, cc=cc, bcc=bcc)
+    except Exception as exc:  # noqa: BLE001
+        mail_log.status = MailLog.Status.FAILED
+        mail_log.erreur = str(exc)
+        mail_log.save()
+        return mail_log
+
+    mail_log.status = MailLog.Status.SENT
+    mail_log.sent_at = timezone.now()
+    mail_log.save()
+
+    if marquer_alerte:
+        cle_dedup = f"champ:{employee.id}:{regle.champ_cible}:{timezone.localdate().isoformat()}"
+        AlerteEnvoyee.objects.create(regle=regle, employee=employee, cle_dedup=cle_dedup)
+        from integrations.notifications import notify
+
+        notify({"type": "alerte", "regle": regle.nom, "employee": str(employee)})
+
+    return mail_log
+
+
 def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_email=None):
     employee = contract.employee
     destinataires = [test_email] if test_email else _resoudre_liste(regle.destinataires)
@@ -121,7 +237,10 @@ def _envoyer_alerte(regle, contract, jours_restants, marquer_alerte=True, test_e
     mail_log.save()
 
     if marquer_alerte:
-        AlerteEnvoyee.objects.create(regle=regle, contract=contract, delai_jours=jours_restants)
+        cle_dedup = f"contrat:{contract.id}:{jours_restants}"
+        AlerteEnvoyee.objects.create(
+            regle=regle, contract=contract, employee=employee, delai_jours=jours_restants, cle_dedup=cle_dedup,
+        )
         from integrations.notifications import notify
 
         notify({"type": "alerte", "regle": regle.nom, "employee": str(employee)})
@@ -133,6 +252,9 @@ def apercu_regle(regle):
     """US-E3-01: preview which employees/contracts would trigger this rule
     right now, without sending anything. Includes the rendered prompt for
     the first match (US-E3-03 prompt preview)."""
+    if regle.type_condition == RegleAutomatisation.TypeCondition.CHAMP_PERSONNALISE:
+        return _apercu_regle_champ(regle)
+
     today = timezone.localdate()
     contracts = Contract.objects.filter(date_fin__isnull=False).select_related("employee")
     if regle.departements_filtre:
@@ -144,7 +266,7 @@ def apercu_regle(regle):
         if jours_restants not in regle.delais_jours:
             continue
         deja_envoye = AlerteEnvoyee.objects.filter(
-            regle=regle, contract=contract, delai_jours=jours_restants
+            regle=regle, cle_dedup=f"contrat:{contract.id}:{jours_restants}"
         ).exists()
         resultats.append(
             {
@@ -175,6 +297,48 @@ def apercu_regle(regle):
     }
 
 
+def _apercu_regle_champ(regle):
+    today = timezone.localdate()
+    resultats = []
+    for employee in _employes_pour_regle_champ(regle):
+        valeur = _evaluer_condition_champ(regle, employee)
+        if valeur is None:
+            continue
+        cle_dedup = f"champ:{employee.id}:{regle.champ_cible}:{today.isoformat()}"
+        deja_envoye = AlerteEnvoyee.objects.filter(regle=regle, cle_dedup=cle_dedup).exists()
+        resultats.append(
+            {
+                "employee_id": employee.id,
+                "nom": f"{employee.prenom} {employee.nom}",
+                "departement": employee.departement,
+                "champ": regle.champ_cible,
+                "valeur": valeur,
+                "deja_envoye": deja_envoye,
+            }
+        )
+
+    prompt_rendu = None
+    if resultats:
+        template = regle.prompt_override or AutomatisationConfig.get_solo().prompt_global
+        if template:
+            premier = resultats[0]
+            prompt_rendu = _substituer_variables(
+                template,
+                {
+                    "nom": premier["nom"],
+                    "departement": premier["departement"] or "N/A",
+                    "champ": premier["champ"],
+                    "valeur": str(premier["valeur"]),
+                },
+            )
+
+    return {
+        "employes_concernes": resultats,
+        "destinataires_resolus": _resoudre_liste(regle.destinataires),
+        "prompt_rendu": prompt_rendu,
+    }
+
+
 def evaluer_regles(regle_id=None):
     regles = RegleAutomatisation.objects.filter(actif=True)
     if regle_id is not None:
@@ -184,6 +348,20 @@ def evaluer_regles(regle_id=None):
     resultats = []
 
     for regle in regles:
+        if regle.type_condition == RegleAutomatisation.TypeCondition.CHAMP_PERSONNALISE:
+            for employee in _employes_pour_regle_champ(regle):
+                valeur = _evaluer_condition_champ(regle, employee)
+                if valeur is None:
+                    continue
+                cle_dedup = f"champ:{employee.id}:{regle.champ_cible}:{today.isoformat()}"
+                if AlerteEnvoyee.objects.filter(regle=regle, cle_dedup=cle_dedup).exists():
+                    continue
+                try:
+                    resultats.append(_envoyer_alerte_champ(regle, employee, valeur))
+                except Exception:  # noqa: BLE001
+                    continue
+            continue
+
         contracts = Contract.objects.filter(date_fin__isnull=False).select_related("employee")
         if regle.departements_filtre:
             contracts = contracts.filter(employee__departement__in=regle.departements_filtre)
@@ -193,7 +371,7 @@ def evaluer_regles(regle_id=None):
             if jours_restants not in regle.delais_jours:
                 continue
             if AlerteEnvoyee.objects.filter(
-                regle=regle, contract=contract, delai_jours=jours_restants
+                regle=regle, cle_dedup=f"contrat:{contract.id}:{jours_restants}"
             ).exists():
                 continue
             try:

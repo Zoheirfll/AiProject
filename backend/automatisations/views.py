@@ -9,7 +9,7 @@ from rest_framework.views import APIView
 
 from accounts.permissions import IsDRH
 from core.serializers import MailLogSerializer
-from employees.models import Contract
+from employees.models import Contract, Employee
 
 from .models import AlerteEnvoyee, AutomatisationConfig, ExecutionSurveillance, RegleAutomatisation, TacheSurveillance
 from .serializers import (
@@ -19,7 +19,14 @@ from .serializers import (
     RegleAutomatisationSerializer,
     TacheSurveillanceSerializer,
 )
-from .services import _envoyer_alerte, _executer_tache, apercu_regle, evaluer_regles
+from .services import (
+    _envoyer_alerte,
+    _envoyer_alerte_champ,
+    _evaluer_condition_champ,
+    _executer_tache,
+    apercu_regle,
+    evaluer_regles,
+)
 
 
 def _regle_visible_qs(user):
@@ -79,6 +86,17 @@ class RegleTestView(APIView):
     def post(self, request, pk):
         regle = get_object_or_404(_regle_visible_qs(request.user), pk=pk)
         test_email = (request.data.get("test_email") or "").strip()
+
+        if regle.type_condition == RegleAutomatisation.TypeCondition.CHAMP_PERSONNALISE:
+            employee = Employee.objects.filter(actif=True).first()
+            if not employee:
+                return Response({"detail": "Aucun employé disponible pour le test."}, status=400)
+            valeur = _evaluer_condition_champ(regle, employee) or "(valeur de test)"
+            mail_log = _envoyer_alerte_champ(
+                regle, employee, valeur, marquer_alerte=False, test_email=test_email or None
+            )
+            return Response(MailLogSerializer(mail_log).data, status=200)
+
         contract = (
             Contract.objects.filter(date_fin__isnull=False)
             .select_related("employee")
@@ -110,7 +128,7 @@ class RegleHistoriqueView(ListAPIView):
 
     def get_queryset(self):
         regle = get_object_or_404(_regle_visible_qs(self.request.user), pk=self.kwargs["pk"])
-        return AlerteEnvoyee.objects.filter(regle=regle).select_related("contract__employee")
+        return AlerteEnvoyee.objects.filter(regle=regle).select_related("contract__employee", "employee")
 
 
 class AutomatisationConfigView(APIView):
