@@ -1,17 +1,25 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { fetchConversations } from '../lib/api'
-import { Card, ChatIcon, EmptyState, PageHeader, Spinner } from '../lib/ui'
+import { Card, ChatIcon, EmptyState, HelpBanner, PageHeader, Spinner, useHelpBanner } from '../lib/ui'
 
 export default function ChatHistoriquePage() {
   const conversationsQuery = useQuery({ queryKey: ['conversations'], queryFn: fetchConversations })
+  const help = useHelpBanner('chat-historique')
 
   return (
     <div className="mx-auto max-w-3xl space-y-6 p-8">
       <PageHeader
         title="Historique des conversations"
         description="Reprenez une conversation précédente avec l'assistant RH."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Seules vos propres conversations apparaissent ici — l'historique de chat n'est jamais partagé entre
+        utilisateurs, même entre deux comptes DRH.
+      </HelpBanner>
 
       {conversationsQuery.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement…</div>

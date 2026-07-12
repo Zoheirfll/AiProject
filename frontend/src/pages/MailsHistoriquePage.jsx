@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { exportMailHistorique, fetchEmployees, fetchMailHistorique, testerSmtp } from '../lib/api'
-import { Badge, Button, Card, CheckCircleIcon, DownloadIcon, EmptyCell, EmptyState, Input, PageHeader, Select, Spinner, Toast } from '../lib/ui'
+import { Badge, Button, Card, CheckCircleIcon, DownloadIcon, EmptyCell, EmptyState, HelpBanner, Input, PageHeader, Select, Spinner, Toast, useHelpBanner } from '../lib/ui'
 import { statusTone } from '../theme'
 import { useAuth } from '../lib/AuthContext'
 import { describeApiError } from '../lib/errors'
@@ -17,6 +17,7 @@ const FILTERS = [
 
 export default function MailsHistoriquePage() {
   const { isDrh } = useAuth()
+  const help = useHelpBanner('mails-historique')
   const [statut, setStatut] = useState('')
   const [employeeId, setEmployeeId] = useState('')
   const [date, setDate] = useState('')
@@ -85,7 +86,14 @@ export default function MailsHistoriquePage() {
             )}
           </div>
         }
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Trace tous les envois, qu'ils viennent d'une règle d'automatisation, d'une tâche de surveillance ou
+        d'un envoi manuel. Filtrez par statut, employé ou date, puis exportez la sélection en Excel ou PDF.
+      </HelpBanner>
 
       {exportMutation.isError && (
         <Toast

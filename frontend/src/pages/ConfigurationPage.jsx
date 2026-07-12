@@ -15,6 +15,8 @@ import {
   Card,
   Field,
   GearIcon,
+  HelpBanner,
+  useHelpBanner,
   Input,
   MailIcon,
   PageHeader,
@@ -195,6 +197,7 @@ function AgentsConfigCard() {
 }
 
 export default function ConfigurationPage() {
+  const help = useHelpBanner('configuration')
   const [prompt, setPrompt] = useState('')
   const [heure, setHeure] = useState('09:00')
   const [saved, setSaved] = useState(false)
@@ -222,7 +225,16 @@ export default function ConfigurationPage() {
       <PageHeader
         title="Configuration"
         description="Prompt Ollama global et horaire du rapport quotidien — utilisés par les automatisations."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Réservée à la DRH. Le prompt global sert de secours pour toute règle/tâche sans instruction propre.
+        La section "Modèles Ollama par agent" permet de choisir un modèle différent (Analyste, Chat,
+        Orchestrateur) — laissez vide pour utiliser le modèle par défaut. Testez la connexion SMTP ici avant
+        de configurer une automatisation qui enverra de vrais mails.
+      </HelpBanner>
 
       {configQuery.isLoading ? (
         <Card>

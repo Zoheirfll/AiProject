@@ -14,6 +14,8 @@ import {
   Card,
   EmptyState,
   Field,
+  HelpBanner,
+  useHelpBanner,
   Input,
   MailIcon,
   PageHeader,
@@ -431,6 +433,7 @@ function ExcelMasseFlow() {
 }
 
 export default function MailApercuPage() {
+  const help = useHelpBanner('mail-apercu')
   const [mode, setMode] = useState('employee')
   const employeesQuery = useQuery({ queryKey: ['employees'], queryFn: () => fetchEmployees() })
 
@@ -439,7 +442,15 @@ export default function MailApercuPage() {
       <PageHeader
         title="Aperçu mail (IA)"
         description="Génère un brouillon de mail via le modèle Ollama local, à relire et modifier avant envoi."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Rien n'est envoyé tant que vous n'avez pas cliqué sur "Envoyer" — chaque brouillon peut être relu,
+        modifié à la main, ou régénéré par l'IA. "Excel (envoi en masse)" génère un brouillon par ligne d'un
+        fichier (colonnes email/nom/sujet) pour un envoi groupé.
+      </HelpBanner>
 
       <SegmentedControl options={MODES} value={mode} onChange={setMode} />
 

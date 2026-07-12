@@ -17,6 +17,8 @@ import {
   EmptyState,
   EyeIcon,
   Field,
+  HelpBanner,
+  useHelpBanner,
   HistoryIcon,
   IconButton,
   Input,
@@ -78,6 +80,11 @@ function TacheFormModal({ open, onClose, onSubmit, isPending }) {
   return (
     <Modal open={open} onClose={onClose} title="Nouvelle tâche de surveillance">
       <form onSubmit={handleSubmit} className="space-y-6">
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+          Le "prompt d'analyse" est une instruction libre pour Ollama (ex: "Alerte-moi si un solde de congés
+          dépasse 30 jours"). En mode Anomalie, un mail ne part que si le modèle juge que ça vaut la peine ; en
+          mode Toujours, un résumé part à chaque exécution planifiée.
+        </p>
         <div className="space-y-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Informations générales
@@ -304,6 +311,7 @@ function TacheCard({ tache, onRun, onTest, onDelete, onVoirHistorique, isRunning
 
 export default function SurveillancePage() {
   const { isDrh } = useAuth()
+  const help = useHelpBanner('surveillance')
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const [activeId, setActiveId] = useState(null)
@@ -371,7 +379,16 @@ export default function SurveillancePage() {
             <PlusIcon /> Nouvelle tâche
           </Button>
         }
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Contrairement aux règles d'automatisation (limitées aux contrats), une tâche de surveillance analyse
+        un fichier que vous déposez (Excel, CSV, texte) selon vos propres instructions en langage libre — c'est
+        Ollama qui décide, à chaque exécution, s'il faut envoyer un mail ("mode Anomalie") ou envoyer toujours
+        un résumé ("mode Toujours").
+      </HelpBanner>
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 

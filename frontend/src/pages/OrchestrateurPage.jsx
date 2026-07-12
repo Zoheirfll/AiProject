@@ -19,6 +19,8 @@ import {
   Field,
   FileTextIcon,
   GridIcon,
+  HelpBanner,
+  useHelpBanner,
   Input,
   PageHeader,
   SparkleIcon,
@@ -133,6 +135,7 @@ function ExecutionCard({ execution, onReprendre, isResuming }) {
 }
 
 export default function OrchestrateurPage() {
+  const help = useHelpBanner('orchestrateur')
   const [toast, setToast] = useState(null)
   const [matricule, setMatricule] = useState('')
   const [instruction, setInstruction] = useState('')
@@ -185,7 +188,16 @@ export default function OrchestrateurPage() {
       <PageHeader
         title="Orchestrateur de workflows"
         description="Enchaîne automatiquement plusieurs étapes RH en une seule instruction."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Réservée à la DRH. Choisissez un workflow prédéfini (l'Onboarding a besoin d'un matricule), ou décrivez
+        en langage libre ce que vous voulez enchaîner — l'IA sélectionne et ordonne des étapes déjà validées,
+        elle n'invente jamais une nouvelle étape. Si une exécution échoue, "Reprendre" relance uniquement à
+        partir de l'étape en erreur.
+      </HelpBanner>
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 
@@ -229,6 +241,11 @@ export default function OrchestrateurPage() {
           </span>
           <h2 className="text-sm font-semibold text-slate-700 dark:text-slate-200">Workflow personnalisé (langage naturel)</h2>
         </div>
+        <p className="text-xs text-slate-400 dark:text-slate-500">
+          L'IA compose votre demande à partir des mêmes étapes que les workflows prédéfinis ci-dessus
+          (vérification contrats, rapport, audit, fiche employé, mail de bienvenue, notification département) —
+          elle choisit lesquelles utiliser et dans quel ordre, sans jamais improviser une action hors de cette liste.
+        </p>
         <Textarea
           value={instruction}
           onChange={(e) => setInstruction(e.target.value)}

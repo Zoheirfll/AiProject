@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAuth } from '../lib/AuthContext'
 import { describeApiError } from '../lib/errors'
 import {
   createRegle,
   deleteRegle,
+  fetchAutomatisationConfig,
   fetchRegleApercu,
   fetchRegleHistorique,
   fetchRegles,
@@ -18,17 +19,22 @@ import {
   Button,
   Card,
   Checkbox,
+  DotsIcon,
+  DropdownMenu,
   EditIcon,
   EmptyState,
   Field,
+  HelpBanner,
+  useHelpBanner,
   HistoryIcon,
-  IconButton,
   Input,
   Modal,
   PageHeader,
   PlusIcon,
   Select,
+  SearchIcon,
   Spinner,
+  TagInput,
   Textarea,
   Toast,
   TrashIcon,
@@ -37,28 +43,24 @@ import {
 const emptyForm = {
   nom: '',
   actif: true,
-  delais_jours: '45, 20, 7',
-  departements_filtre: '',
-  destinataires: '',
-  cc: '',
-  bcc: '',
+  delais_jours: ['45', '20', '7'],
+  departements_filtre: [],
+  destinataires: [],
+  cc: [],
+  bcc: [],
   prompt_override: '',
   format: 'TEXTE',
-}
-
-function toList(value) {
-  return value.split(',').map((v) => v.trim()).filter(Boolean)
 }
 
 function regleToForm(regle) {
   return {
     nom: regle.nom,
     actif: regle.actif,
-    delais_jours: regle.delais_jours.join(', '),
-    departements_filtre: (regle.departements_filtre || []).join(', '),
-    destinataires: (regle.destinataires || []).join(', '),
-    cc: (regle.cc || []).join(', '),
-    bcc: (regle.bcc || []).join(', '),
+    delais_jours: regle.delais_jours.map(String),
+    departements_filtre: regle.departements_filtre || [],
+    destinataires: regle.destinataires || [],
+    cc: regle.cc || [],
+    bcc: regle.bcc || [],
     prompt_override: regle.prompt_override || '',
     format: regle.format || 'TEXTE',
   }
@@ -76,11 +78,11 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
     onSubmit({
       nom: form.nom,
       actif: form.actif,
-      delais_jours: toList(form.delais_jours).map(Number).filter((n) => !Number.isNaN(n)),
-      departements_filtre: toList(form.departements_filtre),
-      destinataires: toList(form.destinataires),
-      cc: toList(form.cc),
-      bcc: toList(form.bcc),
+      delais_jours: form.delais_jours.map(Number).filter((n) => !Number.isNaN(n)),
+      departements_filtre: form.departements_filtre,
+      destinataires: form.destinataires,
+      cc: form.cc,
+      bcc: form.bcc,
       prompt_override: form.prompt_override,
       format: form.format,
     })
@@ -89,6 +91,10 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
   return (
     <Modal open={open} onClose={onClose} title={editingRegle ? `Modifier "${editingRegle.nom}"` : "Nouvelle règle d'automatisation"}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <p className="rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:bg-slate-800/60 dark:text-slate-400">
+          Une alerte part pour chaque délai renseigné (ex: 45, 20 et 7 jours avant échéance) et par contrat
+          concerné — pas d'envoi en double, une alerte déjà envoyée pour un délai donné ne repart pas.
+        </p>
         <div className="space-y-4 border-b border-slate-100 pb-5 dark:border-slate-800">
           <h4 className="text-xs font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-500">
             Identité de la règle
@@ -113,18 +119,18 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
             Déclenchement
           </h4>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <Field label="Délais d'alerte (jours)" hint="Séparés par des virgules.">
-              <Input
+            <Field label="Délais d'alerte (jours)" hint="Entrée ou virgule pour ajouter.">
+              <TagInput
                 placeholder="45, 20, 7"
                 value={form.delais_jours}
-                onChange={(e) => setForm({ ...form, delais_jours: e.target.value })}
+                onChange={(v) => setForm({ ...form, delais_jours: v })}
               />
             </Field>
-            <Field label="Départements filtrés">
-              <Input
-                placeholder="IT, RH (vide = tous)"
+            <Field label="Départements filtrés" hint="Vide = tous les départements.">
+              <TagInput
+                placeholder="IT, RH…"
                 value={form.departements_filtre}
-                onChange={(e) => setForm({ ...form, departements_filtre: e.target.value })}
+                onChange={(v) => setForm({ ...form, departements_filtre: v })}
               />
             </Field>
           </div>
@@ -135,18 +141,18 @@ function RuleFormModal({ open, onClose, onSubmit, isPending, editingRegle }) {
             Destinataires
           </h4>
           <Field label="Destinataires" hint="Emails fixes ou alias departement:NomDuDept.">
-            <Input
+            <TagInput
               placeholder="rh@example.com, departement:IT"
               value={form.destinataires}
-              onChange={(e) => setForm({ ...form, destinataires: e.target.value })}
+              onChange={(v) => setForm({ ...form, destinataires: v })}
             />
           </Field>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="CC">
-              <Input value={form.cc} onChange={(e) => setForm({ ...form, cc: e.target.value })} />
+              <TagInput value={form.cc} onChange={(v) => setForm({ ...form, cc: v })} />
             </Field>
             <Field label="BCC">
-              <Input value={form.bcc} onChange={(e) => setForm({ ...form, bcc: e.target.value })} />
+              <TagInput value={form.bcc} onChange={(v) => setForm({ ...form, bcc: v })} />
             </Field>
           </div>
         </div>
@@ -311,7 +317,36 @@ function TestModal({ regle, onClose, onConfirm, isPending }) {
   )
 }
 
+// Fetches just the "concerned now" count for the state badge — same endpoint
+// the Aperçu modal uses, kept cheap via a long staleTime since it's shown on
+// every card at once.
+function ConcernedBadge({ regleId }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ['regle-apercu', regleId],
+    queryFn: () => fetchRegleApercu(regleId),
+    staleTime: 5 * 60 * 1000,
+  })
+
+  if (isLoading) return null
+  const count = data?.employes_concernes?.length || 0
+  return (
+    <Badge tone={count > 0 ? 'warning' : 'neutral'}>
+      {count > 0 ? `${count} concerné(s) maintenant` : 'Rien à déclencher'}
+    </Badge>
+  )
+}
+
 function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, onEdit, onDelete, isRunning, isDrh }) {
+  const menuItems = [
+    { label: 'Aperçu', icon: <BoltIcon className="h-4 w-4" />, onClick: onOpenApercu },
+    { label: 'Historique', icon: <HistoryIcon className="h-4 w-4" />, onClick: onOpenHistorique },
+    { label: 'Tester', icon: <BoltIcon className="h-4 w-4" />, onClick: onOpenTest },
+    { label: 'Modifier', icon: <EditIcon className="h-4 w-4" />, onClick: onEdit },
+  ]
+  if (isDrh) {
+    menuItems.push({ label: 'Supprimer', icon: <TrashIcon className="h-4 w-4" />, onClick: onDelete, danger: true })
+  }
+
   return (
     <Card className="flex h-full flex-col gap-4">
       <div className="flex items-start gap-3">
@@ -331,13 +366,13 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
           </div>
 
           <div className="mt-2 flex flex-wrap gap-1.5">
+            {regle.actif && <ConcernedBadge regleId={regle.id} />}
             <Badge tone="neutral">Délais: {regle.delais_jours.join(', ') || '—'} j</Badge>
             {regle.departements_filtre?.length > 0 ? (
               <Badge tone="neutral">{regle.departements_filtre.join(', ')}</Badge>
             ) : (
               <Badge tone="neutral">Tous départements</Badge>
             )}
-            <Badge tone="primary">{regle.destinataires?.length || 0} destinataire(s)</Badge>
           </div>
 
           {isDrh && regle.cree_par_username && (
@@ -346,31 +381,22 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
         </div>
       </div>
 
-      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
-        <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" size="sm" onClick={onOpenApercu}>Aperçu</Button>
-          <Button variant="secondary" size="sm" onClick={onOpenHistorique}>
-            <HistoryIcon className="h-3.5 w-3.5" /> Historique
-          </Button>
-          <Button variant="secondary" size="sm" onClick={onOpenTest}>Tester</Button>
-          <Button size="sm" onClick={onRun} disabled={isRunning}>
-            {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
-          </Button>
-        </div>
-        <div className="flex shrink-0 gap-1 border-l border-slate-100 pl-2 dark:border-slate-800">
-          <IconButton label="Modifier" onClick={onEdit}>
-            <EditIcon />
-          </IconButton>
-          {isDrh && (
-            <IconButton
-              label="Supprimer"
-              onClick={onDelete}
-              className="hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950/40 dark:hover:text-red-400"
+      <div className="mt-auto flex items-center justify-between gap-2 border-t border-slate-100 pt-3 dark:border-slate-800">
+        <Button onClick={onRun} disabled={isRunning}>
+          {isRunning && <Spinner className="h-3.5 w-3.5" />} Exécuter
+        </Button>
+        <DropdownMenu
+          items={menuItems}
+          trigger={
+            <button
+              type="button"
+              aria-label="Plus d'actions"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-700 dark:hover:text-slate-200"
             >
-              <TrashIcon />
-            </IconButton>
-          )}
-        </div>
+              <DotsIcon />
+            </button>
+          }
+        />
       </div>
     </Card>
   )
@@ -378,6 +404,7 @@ function RuleCard({ regle, onRun, onOpenTest, onOpenApercu, onOpenHistorique, on
 
 export default function AutomatisationsPage() {
   const { isDrh } = useAuth()
+  const help = useHelpBanner('automatisations')
   const [modalOpen, setModalOpen] = useState(false)
   const [editingRegle, setEditingRegle] = useState(null)
   const [toast, setToast] = useState(null)
@@ -385,9 +412,12 @@ export default function AutomatisationsPage() {
   const [apercuId, setApercuId] = useState(null)
   const [historiqueId, setHistoriqueId] = useState(null)
   const [testRegleTarget, setTestRegleTarget] = useState(null)
+  const [search, setSearch] = useState('')
+  const [statusFilter, setStatusFilter] = useState('TOUS')
   const queryClient = useQueryClient()
 
   const reglesQuery = useQuery({ queryKey: ['regles'], queryFn: fetchRegles })
+  const configQuery = useQuery({ queryKey: ['automatisation-config'], queryFn: fetchAutomatisationConfig })
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ['regles'] })
 
   const closeModal = () => {
@@ -453,19 +483,58 @@ export default function AutomatisationsPage() {
     }
   }
 
+  const filteredRegles = useMemo(() => {
+    return (reglesQuery.data || []).filter((r) => {
+      if (statusFilter === 'ACTIVE' && !r.actif) return false
+      if (statusFilter === 'INACTIVE' && r.actif) return false
+      if (search.trim() && !r.nom.toLowerCase().includes(search.trim().toLowerCase())) return false
+      return true
+    })
+  }, [reglesQuery.data, search, statusFilter])
+
+  const heureRapport = configQuery.data?.heure_rapport_quotidien
+  const description = heureRapport
+    ? `Règles d'alerte de contrats expirants — rapport quotidien envoyé à ${heureRapport.slice(0, 5)}.`
+    : "Règles d'alerte de contrats expirants."
+
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-8">
       <PageHeader
         title="Automatisations"
-        description="Règles d'alerte de contrats expirants — envoi automatique quotidien à 9h."
+        description={description}
         actions={
           <Button onClick={() => setModalOpen(true)}>
             <PlusIcon /> Nouvelle règle
           </Button>
         }
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Chaque règle surveille les contrats qui approchent de leur date de fin et envoie une alerte email
+        générée par IA aux délais configurés (ex: J-45, J-20, J-7). Utilisez "Aperçu" pour voir qui serait
+        alerté sans rien envoyer, et "Tester" pour recevoir un exemple sur votre propre adresse avant d'activer.
+      </HelpBanner>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative flex-1">
+          <SearchIcon className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+          <Input
+            className="pl-9"
+            placeholder="Rechercher une règle par nom…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <Select className="sm:w-48" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+          <option value="TOUS">Toutes les règles</option>
+          <option value="ACTIVE">Actives seulement</option>
+          <option value="INACTIVE">Inactives seulement</option>
+        </Select>
+      </div>
 
       <RuleFormModal
         open={modalOpen}
@@ -495,7 +564,7 @@ export default function AutomatisationsPage() {
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {reglesQuery.data?.map((regle) => (
+        {filteredRegles.map((regle) => (
           <RuleCard
             key={regle.id}
             regle={regle}
@@ -515,15 +584,21 @@ export default function AutomatisationsPage() {
           />
         ))}
 
-        {reglesQuery.data?.length === 0 && (
+        {!reglesQuery.isLoading && filteredRegles.length === 0 && (
           <div className="md:col-span-2 xl:col-span-3">
             <EmptyState
-              title="Aucune règle configurée"
-              description="Créez une règle pour automatiser les alertes de contrats expirants."
+              title={reglesQuery.data?.length ? 'Aucune règle ne correspond' : 'Aucune règle configurée'}
+              description={
+                reglesQuery.data?.length
+                  ? 'Essayez une autre recherche ou changez le filtre.'
+                  : 'Créez une règle pour automatiser les alertes de contrats expirants.'
+              }
               action={
-                <Button variant="secondary" onClick={() => setModalOpen(true)}>
-                  <PlusIcon /> Nouvelle règle
-                </Button>
+                !reglesQuery.data?.length && (
+                  <Button variant="secondary" onClick={() => setModalOpen(true)}>
+                    <PlusIcon /> Nouvelle règle
+                  </Button>
+                )
               }
             />
           </div>

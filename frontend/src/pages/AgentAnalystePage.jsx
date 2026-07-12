@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchAgentAnalyses, lancerAnalyse } from '../lib/api'
 import { describeApiError } from '../lib/errors'
 import { useAuth } from '../lib/AuthContext'
-import { Badge, Button, Card, EmptyState, PageHeader, SparkleIcon, Spinner, Toast } from '../lib/ui'
+import { Badge, Button, Card, EmptyState, HelpBanner, PageHeader, SparkleIcon, Spinner, Toast, useHelpBanner } from '../lib/ui'
 
 const DECISION_TONE = {
   anomalies: 'danger',
@@ -14,6 +14,7 @@ export default function AgentAnalystePage() {
   const [toast, setToast] = useState(null)
   const queryClient = useQueryClient()
   const { isDrh } = useAuth()
+  const help = useHelpBanner('agent-analyste')
 
   const analysesQuery = useQuery({ queryKey: ['agent-analyses'], queryFn: fetchAgentAnalyses })
 
@@ -55,7 +56,16 @@ export default function AgentAnalystePage() {
             )}
           </div>
         }
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Cet agent tourne automatiquement après chaque import Excel : il lit les données (pas seulement les
+        contrats — congés, formations, tout ce que le fichier contient) et décide lui-même s'il y a quelque
+        chose de notable à signaler par mail. "Lancer une analyse" déclenche une passe manuelle sur les
+        employés actifs actuels.
+      </HelpBanner>
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 

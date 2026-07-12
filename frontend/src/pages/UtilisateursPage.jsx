@@ -9,6 +9,8 @@ import {
   Card,
   EmptyState,
   Field,
+  HelpBanner,
+  useHelpBanner,
   IconButton,
   Input,
   Modal,
@@ -175,6 +177,7 @@ function CreateUserModal({ open, onClose, onSubmit, isPending, error, fieldError
 
 export default function UtilisateursPage() {
   const { user: currentUser } = useAuth()
+  const help = useHelpBanner('utilisateurs')
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast] = useState(null)
   const queryClient = useQueryClient()
@@ -221,7 +224,15 @@ export default function UtilisateursPage() {
             <PlusIcon /> Nouveau compte
           </Button>
         }
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Réservée à la DRH. Un Chargé RH ne voit que les règles, tâches et imports qu'il a créés (les vôtres
+        restent visibles à tous les DRH). Vous ne pouvez ni désactiver ni supprimer votre propre compte, pour
+        éviter de vous verrouiller hors de l'application.
+      </HelpBanner>
 
       {toast && <Toast {...toast} onDismiss={() => setToast(null)} />}
 

@@ -19,6 +19,8 @@ import {
   EmptyState,
   Field,
   GridIcon,
+  HelpBanner,
+  useHelpBanner,
   HistoryIcon,
   Input,
   PageHeader,
@@ -487,6 +489,7 @@ function EmployeesSection() {
 
 export default function ImportsPage() {
   const { isDrh } = useAuth()
+  const help = useHelpBanner('imports')
   const fileInputRef = useRef(null)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -552,7 +555,15 @@ export default function ImportsPage() {
       <PageHeader
         title="Import Excel"
         description="Seuls matricule, nom et prenom sont requis. Les autres colonnes reconnues (email, departement, poste, categorie, num_contrat, date_embauche, date_fin_contrat) sont mappées automatiquement — toute autre colonne (congés, formations, évaluations…) est importée telle quelle, sans configuration."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Déposez un fichier Excel ou configurez un dossier surveillé (scanné toutes les 45s) : les imports
+        sont traités automatiquement. Le bouton "Télécharger le modèle" montre le format attendu — et rappelle
+        que vous n'êtes pas limité aux colonnes reconnues, tout le reste est conservé tel quel par employé.
+      </HelpBanner>
 
       <Card
         onDragOver={handleDragOver}

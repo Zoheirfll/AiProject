@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { fetchLogs } from '../lib/api'
-import { Badge, Card, EmptyCell, EmptyState, Field, Input, PageHeader, Select, Spinner } from '../lib/ui'
+import { Badge, Card, EmptyCell, EmptyState, Field, HelpBanner, Input, PageHeader, Select, Spinner, useHelpBanner } from '../lib/ui'
 
 const LEVEL_TONE = { INFO: 'neutral', WARNING: 'warning', ERROR: 'danger' }
 
@@ -13,6 +13,7 @@ const LEVELS = [
 ]
 
 export default function LogsPage() {
+  const help = useHelpBanner('logs')
   const [level, setLevel] = useState('')
   const [loggerName, setLoggerName] = useState('')
   const [dateFrom, setDateFrom] = useState('')
@@ -31,7 +32,17 @@ export default function LogsPage() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-6 p-8">
-      <PageHeader title="Logs techniques" description="Journal applicatif (INFO / WARNING / ERROR), consultable et filtrable." />
+      <PageHeader
+        title="Logs techniques"
+        description="Journal applicatif (INFO / WARNING / ERROR), consultable et filtrable."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
+      />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Réservée à la DRH. Utile pour diagnostiquer un échec d'envoi ou une erreur Ollama/Groq — les secrets
+        (mots de passe, clés API, tokens) sont automatiquement masqués avant d'être enregistrés ici.
+      </HelpBanner>
 
       <Card className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Field label="Niveau">

@@ -26,6 +26,7 @@ import {
 import {
   Card,
   EmptyState,
+  HelpBanner,
   MailIcon,
   PageHeader,
   Spinner,
@@ -35,6 +36,7 @@ import {
   CheckCircleIcon,
   CloseIcon,
   FileTextIcon,
+  useHelpBanner,
 } from '../lib/ui'
 import { chartPalette } from '../theme'
 import { useNotifications } from '../lib/useNotifications'
@@ -111,6 +113,7 @@ const ACTIVITY_ICON = { mail: MailIcon, import: UploadIcon, alerte: BoltIcon, su
 
 export default function DashboardPage() {
   const queryClient = useQueryClient()
+  const help = useHelpBanner('dashboard')
 
   const kpisQuery = useQuery({ queryKey: ['dashboard-kpis'], queryFn: fetchDashboardKpis, refetchInterval: 30000 })
   const evolutionQuery = useQuery({ queryKey: ['dashboard-evolution'], queryFn: () => fetchMailsEvolution(30) })
@@ -137,7 +140,15 @@ export default function DashboardPage() {
       <PageHeader
         title="Dashboard"
         description="Vue d'ensemble instantanée de l'activité RH et des automatisations."
+        onHelp={help.reopen}
+        helpVisible={!help.dismissed}
       />
+
+      <HelpBanner dismissed={help.dismissed} onDismiss={help.dismiss} title="À quoi sert cette page ?">
+        Les tuiles KPI (mails, règles actives, contrats expirants, statut Ollama/n8n) et les graphiques se
+        mettent à jour en temps réel via WebSocket dès qu'un mail part ou qu'un import se termine — pas besoin
+        de rafraîchir. Chaque ligne de "Activité récente" renvoie vers le détail correspondant.
+      </HelpBanner>
 
       {kpisQuery.isLoading ? (
         <div className="flex items-center gap-2 text-sm text-slate-400"><Spinner /> Chargement des KPIs…</div>
